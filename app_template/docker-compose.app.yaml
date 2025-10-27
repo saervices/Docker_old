@@ -8,9 +8,10 @@ services:
     ######################################################################
     # --- CONTAINER BASICS
     ######################################################################
-    image: ${IMAGE:?Image required}
-    container_name: ${APP_NAME:?App name required}
-    hostname: ${APP_NAME}
+    image: ${IMAGE:?Image required}                                                                                                                             # Pull image from registry; uncomment build section below for local images
+    container_name: ${APP_NAME:?App name required}                                                                                                              # Stable container name for easier orchestration
+    hostname: ${APP_NAME}                                                                                                                                       # Hostname inside the container for consistent service discovery
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                   # Run as non-root by default; override only if the image already handles user switching
     restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
     # build:                                                                                                                                                    # Optional: build image from local Dockerfile
     #   context: .
@@ -19,14 +20,15 @@ services:
     ######################################################################
     # --- SECURITY SETTINGS
     ######################################################################
-    # user: '1000:1000'                                                                                                                                         # Optional: run as specific non-root user (app user)
-    read_only: true                                                                                                                                             # Filesystem is read-only except for mounted volumes
+    read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
     cap_drop:                                                                                                                                                   # Drop all capabilities by default
       - ALL
-    # cap_add:                                                                                                                                                  # Add only the minimum required capabilities
-    #   - 
+    # cap_add:                                                                                                                                                  # Add only the minimum required capabilities (e.g., NET_BIND_SERVICE)
+    #   - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
+      - seccomp=${SECCOMP_PROFILE:-/etc/docker/seccomp.json}                                                                                                    # Enforce hardened syscall profile (set to unconfined only for debugging)
+      - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
 
     ######################################################################
     # --- SYSTEM RUNTIME
@@ -35,27 +37,28 @@ services:
     stop_grace_period: 30s                                                                                                                                      # Give app time to shut down gracefully
     oom_score_adj: -500                                                                                                                                         # Reduce likelihood of getting killed under memory pressure
     tmpfs:                                                                                                                                                      # Ephemeral storage in RAM, auto-cleared on restart
-      - /run                                                                                                                                                    # Mount /run as tmpfs for runtime files (PID files, sockets, etc.)
-      - /tmp                                                                                                                                                    # Mount /tmp as tmpfs for temporary files; faster and auto-cleared on restart
+      - /run                                                                                                                                                    # Runtime files (PID files, sockets, etc.)
+      - /tmp                                                                                                                                                    # Short-lived temp files; faster and auto-cleared on restart
+      - /var/tmp                                                                                                                                                # Some apps expect /var/tmp; remove this line if the workload does not touch it
 
     ######################################################################
     # --- FILESYSTEM & SECRETS
     ######################################################################
-    volumes:                                                                                                                                                    # Mount external storage or host directories into the container for persistent data or config
-      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Set container time to host time
-      - /etc/timezone:/etc/timezone:ro                                                                                                                          # Pass timezone info
-      - data:/data:rw                                                                                                                                           # App data volume (adjust as needed)
-    # secrets:                                                                                                                                                  # Mount the defined secret into the container (usually under /run/secrets/)
-    #   - APP_PASSWORD
+    volumes:                                                                                                                                                    # Bind only the paths the app truly needs (avoid mounting host root paths)
+      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronise container time with host time
+      - /etc/timezone:/etc/timezone:ro                                                                                                                          # Supply timezone information
+      - data:/data:ro                                                                                                                                           # Application data volume (switch to :rw only when writes are unavoidable)
+    secrets:                                                                                                                                                    # Enforce provision of sensitive material via Docker secrets
+      - app_password
 
     ######################################################################
     # --- NETWORKING / REVERSE PROXY
     ######################################################################
-    labels:                                                                                                                                                     # Metadata for the container, often used for service discovery or reverse proxy rules (e.g., Traefik)
-      - "traefik.enable=true"                                                                                                                                   # Enable Traefik reverse proxy routing for this container
-      - "traefik.http.routers.${APP_NAME}-rtr.rule=${TRAEFIK_HOST}"                                                                                             # Traefik router
-      - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internal container port
-    #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optional Middlewares: Authentik proxy authentication
+    labels:                                                                                                                                                     # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
+      - "traefik.enable=true"                                                                                                                                   # Enable Traefik routing for this container
+      - "traefik.http.routers.${APP_NAME}-rtr.rule=\"${TRAEFIK_HOST}\""                                                                                         # Traefik router rule; supply escaped Host() rule via .env
+      - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internal container port exposed to the proxy
+    #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optional middleware example (authentication, rate limiting, etc.)
     # ports:                                                                                                                                                    # Optional: exposed ports
     #   - 8080:80
     # expose:                                                                                                                                                   # Optional: expose without publishing
@@ -72,15 +75,15 @@ services:
     # command: ['your', 'default', 'command']                                                                                                                   # Override default container command
     # entrypoint: ['your-entrypoint.sh']                                                                                                                        # Override default container entrypoint
     environment:                                                                                                                                                # Environment variables for container configuration
-      ENV_VAR_EXAMPLE: ${ENV_VAR_EXAMPLE}
-    #   APP_PASSWORD_FILE: /run/secrets/APP_PASSWORD 
+      ENV_VAR_EXAMPLE: ${ENV_VAR_EXAMPLE:-set-me}                                                                                                               # Replace with application-specific configuration
+      APP_PASSWORD_FILE: ${APP_PASSWORD_FILE:-/run/secrets/app_password}                                                                                        # Example: wire the mounted Docker secret into the app
     logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
       driver: "json-file"
       options:
         max-size: "10m"                                                                                                                                         # Max log file size before rotation
         max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
     healthcheck:                                                                                                                                                # Periodic container health check to ensure service availability
-      test: ['CMD', 'curl', '-f', 'http://localhost/health']                                                                                                    # Command to test container health
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/health || exit 1']                                                                                        # Adjust URL/tooling to match the image (install curl or replace with wget/netcat)
       interval: 30s                                                                                                                                             # Time between checks
       timeout: 5s                                                                                                                                               # Time to wait for response
       retries: 3                                                                                                                                                # Number of retries before marking unhealthy
@@ -91,28 +94,28 @@ services:
     ######################################################################
     # --- DEPENDENCIES
     ######################################################################
-    depends_on:                                                                                                                                                 # Ensure these services are healthy before starting this one
+    depends_on:                                                                                                                                                 # Ensure these services report healthy status before starting this one
       mariadb:
         condition: service_healthy
       redis:
         condition: service_healthy
 
     ######################################################################
-    # --- SYSTEM LIMITS
+    # --- RESOURCE LIMITS
     ######################################################################
-    # shm_size: "256m"                                                                                                                                          # Shared memory (default 64M, useful e.g. for Chromium)
-    # ulimits:                                                                                                                                                  # Set system resource limits for the container processes (Increasing nofile limits is useful for apps handling many simultaneous connections or files)
-    #   nofile:                                                                                                                                                 # Controls the max number of open file descriptors (files, sockets, etc.)
-    #     soft: 65535                                                                                                                                           # Soft limit: default max open files a process can have
-    #     hard: 65535                                                                                                                                           # Hard limit: maximum value the soft limit can be raised to by privileged processes
+    mem_limit: ${MEM_LIMIT:-512m}                                                                                                                               # Upper bound memory allocation (raise cautiously once monitored)
+    cpus: ${CPU_LIMIT:-1.0}                                                                                                                                     # Fractional CPU quota; increase only when the workload needs it
+    pids_limit: ${PIDS_LIMIT:-128}                                                                                                                              # Cap number of processes/threads to mitigate fork bombs
+    shm_size: ${SHM_SIZE:-64m}                                                                                                                                  # Shared memory segment; bump for browsers or multimedia workloads
+    # ulimits:                                                                                                                                                  # Additional fine-grained limits (e.g., nofile, nproc)
 
 volumes:
   data:
-    driver: local
+    driver: local                                                                                                                                               # Local named volume placeholder (swap for cloud/backed driver if required)
 
-# secrets:                                                                                                                                                      # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
-#   APP_PASSWORD:
-#     file: ${APP_PASSWORD_PATH:?Secret Path required}${APP_PASSWORD_FILENAME:?Secret Filename required}                                                        # Load secret from external file
+secrets:
+  app_password:
+    file: ${APP_PASSWORD_PATH:?Secret path required}/${APP_PASSWORD_FILENAME:?Secret filename required}                                                         # Load secret material from host (ensure correct permissions)
 
 networks:
   frontend:
