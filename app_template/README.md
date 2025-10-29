@@ -17,7 +17,7 @@ This template delivers a security-first baseline for running an application serv
 | `IMAGE`, `APP_NAME` | Describe the image to pull and the canonical container name. |
 | `APP_UID`, `APP_GID` | Enforce a non-root runtime user; align with file ownership on mounted volumes. |
 | `TRAEFIK_HOST`, `TRAEFIK_PORT` | Feed routing rules and upstream port information to Traefik labels. |
-| `APP_PASSWORD_PATH`, `APP_PASSWORD_FILENAME` | Control how Docker secrets are loaded from the host and exposed inside the container. |
+| `APP_PASSWORD_PATH`, `APP_PASSWORD_FILENAME`, `APP_PASSWORD_FILE` | Control how Docker secrets are sourced from the host and referenced inside the container. |
 | `SECCOMP_PROFILE`, `APPARMOR_PROFILE` | Harden the container with syscall and mandatory access control profiles (override when debugging or on unsupported hosts). |
 | `MEM_LIMIT`, `CPU_LIMIT`, `PIDS_LIMIT` | Keep resource consumption predictable and defend against runaway workloads. |
 | `SHM_SIZE` | Control the `/dev/shm` tmpfs size for workloads that need larger shared memory segments. |

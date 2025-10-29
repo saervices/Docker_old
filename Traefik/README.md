@@ -6,7 +6,8 @@ Reverse proxy and certificate manager fronting the rest of the stack. The compos
 
 ## Components
 - **traefik** – single container exposing ports 80/443 with dynamic configuration sourced from `appdata/config`.
-- Depends on the Docker API (via socket-proxy) and Authentik for the forward-auth middleware configured in the labels.
+- **socketproxy** – required helper pulled in via `x-required-services` (see `templates/socketproxy`) to expose the Docker API securely.
+- **traefik_certs-dumper** – optional helper referenced through `x-required-services` (see `templates/traefik_certs-dumper`) that mirrors certificates via SSH hooks.
 
 ---
 
@@ -16,11 +17,13 @@ Reverse proxy and certificate manager fronting the rest of the stack. The compos
 |----------|---------|-------|
 | `IMAGE` | `traefik` | Traefik image tag. |
 | `APP_NAME` | `traefik` | Used for container name and Traefik labels. |
-| `TRAEFIK_HOST` | `Host(\`traefik.example.com\`)` | Dashboard/router host rule. |
+| `APP_UID` / `APP_GID` | `1000` | Drop Traefik to a non-root user inside the container. |
+| `SECCOMP_PROFILE` / `APPARMOR_PROFILE` | `/etc/docker/seccomp.json` / `docker-default` | Security profiles enforced on the container (set to `unconfined` only while debugging). |
+| `TRAEFIK_HOST` | `Host(\`traefik.example.com\`)` | Dashboard/router host rule (string must be escaped in `.env`). |
 | `TRAEFIK_DOMAIN` | `example.com` | Base domain used by static TLS options. |
 | `TRAEFIK_PORT` | `8080` | Dashboard port exposed internally (proxied by Traefik itself). |
-| `CF_DNS_API_TOKEN_PATH` | `./secrets/` | Folder with the Cloudflare API token. |
-| `CF_DNS_API_TOKEN_FILENAME` | `CF_DNS_API_TOKEN` | Secret file name for DNS-01 validation. |
+| `CF_DNS_API_TOKEN_PATH` | `./secrets/` | Folder containing the Cloudflare API token. |
+| `CF_DNS_API_TOKEN_FILENAME` | `CF_DNS_API_TOKEN` | File name holding the Cloudflare token. |
 | `LOG_LEVEL` | `ERROR` | Traefik log level (`DEBUG`, `INFO`, `WARN`, etc.). |
 | `LOG_FORMAT` | `common` | Log format for both access and error logs. |
 | `BUFFERINGSIZE` | `10` | Access log buffering (lines). |
@@ -35,6 +38,7 @@ Reverse proxy and certificate manager fronting the rest of the stack. The compos
 | `CERTRESOLVER` | `cloudflare` | ACME resolver name used in router labels. |
 | `DNSCHALLENGE_RESOLVERS` | `1.1.1.1:53,1.0.0.1:53` | DNS servers used for ACME propagation checks. |
 | `AUTHENTIK_CONTAINER_NAME` | `authentik` | Used by the authentik-proxy middleware reference. |
+| `MEM_LIMIT` / `CPU_LIMIT` / `PIDS_LIMIT` / `SHM_SIZE` | `512m` / `1.0` / `128` / `64m` | Resource ceilings applied to the container. |
 | `SOCKETPROXY_CONTAINERS` | `1` | Grants Traefik read access to the Docker API via socket-proxy. |
 
 Populate or adjust these values in `Traefik/.env`.
@@ -46,8 +50,8 @@ Populate or adjust these values in `Traefik/.env`.
 - `./appdata/config/tls-opts.yaml` → `/etc/traefik/conf.d/tls-opts.yaml`
 - `./appdata/config/conf.d/` → `/etc/traefik/conf.d/rules/` for dynamic routers/services.
 - `./appdata/config/certs/` → `/var/traefik/certs` for ACME storage and imported certificates.
-- `/var/log/traefik` mapped from the host to persist access/error logs (create it with proper permissions).
 - Secret `CF_DNS_API_TOKEN` stored in `secrets/CF_DNS_API_TOKEN` and mounted at runtime.
+- Traefik logs stay inside the container on a tmpfs mount (`/var/log/traefik`); rely on the Docker log driver rotation (`10 MB ×3`) for persistence.
 
 ---
 
@@ -63,4 +67,4 @@ Populate or adjust these values in `Traefik/.env`.
 - The dashboard is enabled (`--api.insecure=true`); keep the router behind Authentik or restrict by IP using the shipped middlewares.
 - When you add new subdomains, drop rule files in `appdata/config/conf.d` and Traefik will reload automatically.
 - ACME certificates land in `appdata/config/certs/acme.json`; back it up and keep permissions tight (600).
-- Logs rotate via the Docker log driver (10 MB ×3) in addition to the mapped `/var/log/traefik` path—monitor disk usage there.
+- Logs rotate via the Docker log driver (10 MB ×3); take external copies if you need persistent log history because `/var/log/traefik` is tmpfs-backed.
