@@ -27,7 +27,6 @@ services:
     #   - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
-      - seccomp=${SECCOMP_PROFILE:-/etc/docker/seccomp.json}                                                                                                    # Enforce hardened syscall profile (set to unconfined only for debugging)
       - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
 
     ######################################################################
@@ -56,7 +55,7 @@ services:
     ######################################################################
     labels:                                                                                                                                                     # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
       - "traefik.enable=true"                                                                                                                                   # Enable Traefik routing for this container
-      - "traefik.http.routers.${APP_NAME}-rtr.rule=\"${TRAEFIK_HOST}\""                                                                                         # Traefik router rule; supply escaped Host() rule via .env
+      - "traefik.http.routers.${APP_NAME}-rtr.rule=${TRAEFIK_HOST}"                                                                                             # Traefik router rule; supply escaped Host() rule via .env
       - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internal container port exposed to the proxy
     #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optional middleware example (authentication, rate limiting, etc.)
     # ports:                                                                                                                                                    # Optional: exposed ports
