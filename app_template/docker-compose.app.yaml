@@ -11,7 +11,6 @@ services:
     image: ${IMAGE:?Image required}                                                                                                                             # Pull image from registry; uncomment build section below for local images
     container_name: ${APP_NAME:?App name required}                                                                                                              # Stable container name for easier orchestration
     hostname: ${APP_NAME}                                                                                                                                       # Hostname inside the container for consistent service discovery
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                   # Run as non-root by default; override only if the image already handles user switching
     restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
     # build:                                                                                                                                                    # Optional: build image from local Dockerfile
     #   context: .
@@ -20,6 +19,7 @@ services:
     ######################################################################
     # --- SECURITY SETTINGS
     ######################################################################
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                   # Run as non-root by default; override only if the image already handles user switching
     read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
     cap_drop:                                                                                                                                                   # Drop all capabilities by default
       - ALL
@@ -47,9 +47,9 @@ services:
     volumes:                                                                                                                                                    # Bind only the paths the app truly needs (avoid mounting host root paths)
       - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronise container time with host time
       - /etc/timezone:/etc/timezone:ro                                                                                                                          # Supply timezone information
-      - data:/data:ro                                                                                                                                           # Application data volume (switch to :rw only when writes are unavoidable)
+      - ./appdata/data:/data:ro                                                                                                                                 # Application data volume (switch to :rw only when writes are unavoidable)
     secrets:                                                                                                                                                    # Enforce provision of sensitive material via Docker secrets
-      - app_password
+      - APP_PASSWORD
 
     ######################################################################
     # --- NETWORKING / REVERSE PROXY
@@ -76,7 +76,7 @@ services:
     # entrypoint: ['your-entrypoint.sh']                                                                                                                        # Override default container entrypoint
     environment:                                                                                                                                                # Environment variables for container configuration
       ENV_VAR_EXAMPLE: ${ENV_VAR_EXAMPLE:-set-me}                                                                                                               # Replace with application-specific configuration
-      APP_PASSWORD_FILE: ${APP_PASSWORD_FILE:-/run/secrets/app_password}                                                                                        # Example: wire the mounted Docker secret into the app
+      APP_PASSWORD_FILE: /run/secrets/APP_PASSWORD                                                                                                              # Example: wire the mounted Docker secret into the app
     logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
       driver: "json-file"
       options:
@@ -113,8 +113,8 @@ volumes:
   data:
     driver: local                                                                                                                                               # Local named volume placeholder (swap for cloud/backed driver if required)
 
-secrets:
-  app_password:
+secrets:                                                                                                                                                        # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
+  APP_PASSWORD:
     file: ${APP_PASSWORD_PATH:?Secret path required}/${APP_PASSWORD_FILENAME:?Secret filename required}                                                         # Load secret material from host (ensure correct permissions)
 
 networks:
