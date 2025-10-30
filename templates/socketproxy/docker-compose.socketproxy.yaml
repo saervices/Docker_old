@@ -5,8 +5,8 @@ services:
     # --- CONTAINER BASICS
     ######################################################################
     image: ${SOCKETPROXY_IMAGE:?Image required}                                                                                                                 # Pull image from registry; uncomment build section below for local images
-    container_name: ${APP_NAME:?App name required}-socketproxy                                                                                                  # Stable container name for easier orchestration
-    hostname: ${APP_NAME}-socketproxy                                                                                                                           # Hostname inside the container for consistent service discovery
+    container_name: ${APP_NAME:?App name required}-${SOCKETPROXY_APP_NAME}                                                                                      # Stable container name for easier orchestration
+    hostname: ${APP_NAME}-${SOCKETPROXY_APP_NAME}                                                                                                               # Hostname inside the container for consistent service discovery
     restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
     # build:                                                                                                                                                    # Optional: build image from local Dockerfile
     #   context: .
