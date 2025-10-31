@@ -15,7 +15,7 @@ services:
     ######################################################################
     # --- SECURITY SETTINGS
     ######################################################################
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                   # Run as non-root by default; override only if the image already handles user switching
+    # user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                 # Run as non-root by default; override only if the image already handles user switching
     read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
     cap_drop:                                                                                                                                                   # Drop all capabilities by default
       - ALL
