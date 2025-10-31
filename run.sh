@@ -508,6 +508,39 @@ make_scripts_executable() {
   return 0
 }
 
+# Function: get_env_value_from_file
+# Reads a key from an .env file, strips inline comments, and trims quotes.
+# ───────────────────────────────────────────────────────────────────────
+get_env_value_from_file() {
+  local key="$1"
+  local file="$2"
+  local line value
+
+  if [[ ! -f "$file" ]]; then
+    log_error "Environment file not found: $file"
+    return 1
+  fi
+
+  if ! line=$(grep -E "^[[:space:]]*$key=" "$file" | tail -n1); then
+    log_error "Key $key not present in $file"
+    return 1
+  fi
+
+  value=${line#*=}
+  value=${value%%#*}
+  value=$(printf '%s' "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+
+  if [[ ${#value} -ge 2 ]]; then
+    if [[ ${value:0:1} == "\"" && ${value: -1} == "\"" ]]; then
+      value=${value:1:-1}
+    elif [[ ${value:0:1} == "'" && ${value: -1} == "'" ]]; then
+      value=${value:1:-1}
+    fi
+  fi
+
+  printf '%s\n' "$value"
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Main Function
 # ──────────────────────────────────────────────────────────────────────────────
@@ -840,7 +873,7 @@ set_permissions() {
     dir="${dir%"${dir##*[![:space:]]}"}"
     dir="$TARGET_DIR/$dir"
 
-    if [[ "$FORCE" == true || ! -d "$dir" ]]; then
+    if [[ "$FORCE" == true || "$INITIAL_RUN" == true ]]; then
       ensure_dir_exists "$dir"
 
       if chown -R "${user}:${group}" "$dir"; then
@@ -1106,6 +1139,27 @@ generate_password() {
   done
 }
 
+# Function: load_permissions_env
+# Loads APP_UID, APP_GID, and DIRECTORIES into the current shell.
+# Arguments:
+#   $1 - path to merged .env file
+# ───────────────────────────────────────────────────────────────────────
+load_permissions_env() {
+  local env_file="${1:-${TARGET_DIR}/.env}"
+
+  if [[ -z "${APP_UID:-}" ]]; then
+    APP_UID="$(get_env_value_from_file "APP_UID" "$env_file")" || return 1
+  fi
+
+  if [[ -z "${APP_GID:-}" ]]; then
+    APP_GID="$(get_env_value_from_file "APP_GID" "$env_file")" || return 1
+  fi
+
+  if [[ -z "${DIRECTORIES:-}" ]]; then
+    DIRECTORIES="$(get_env_value_from_file "DIRECTORIES" "$env_file")" || return 1
+  fi
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Main Execution
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1127,10 +1181,12 @@ main() {
     fi
     
     make_scripts_executable "${TARGET_DIR}/scripts"
-    if [[ -f "${TARGET_DIR}/scripts/setup.sh" ]]; then
-      log_info "Loading variables from "${TARGET_DIR}/scripts/setup.sh""
-      . "${TARGET_DIR}/scripts/setup.sh"
-      set_permissions "$DIRECTORIES" "$USER" "$GROUP"
+
+    if load_permissions_env "${TARGET_DIR}/.env"; then
+      log_info "Loading variables from "${TARGET_DIR}/.env""
+      set_permissions "$DIRECTORIES" "$APP_UID" "$APP_GID"
+    else
+      log_warn "Skipping permission adjustments because required environment values are missing."
     fi
 
     setup_cleanup_trap
