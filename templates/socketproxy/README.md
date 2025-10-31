@@ -13,8 +13,9 @@ Least-privilege Compose fragment wrapping `lscr.io/linuxserver/socket-proxy`. Co
 
 ## How To Use It
 1. In the parent stack `.env`, provide `APP_NAME` (e.g., `APP_NAME=traefik`). In this template’s `.env`, adjust `SOCKETPROXY_APP_NAME` if you want a suffix other than `socketproxy`.
-2. Ensure the external network referenced here (`backend` by default) already exists or rename it in both the compose file and `.env`.
-3. Leave all Docker API flags at `0`, enable (`1`) only the endpoints the consuming service needs, then bring both compose files up together:
+2. Ensure the container runs with permissions to read `/var/run/docker.sock`. The simplest route is to run as root (commented `user:` line). If you need a non-root UID/GID, grant it membership in the host’s Docker group (`stat -c '%g' /var/run/docker.sock`) or adjust ACLs accordingly.
+3. Ensure the external network referenced here (`backend` by default) already exists or rename it in both the compose file and `.env`.
+4. Leave all Docker API flags at `0`, enable (`1`) only the endpoints the consuming service needs, then bring both compose files up together:
    ```bash
    docker compose --env-file Traefik/.env \
      -f Traefik/docker-compose.app.yaml \
