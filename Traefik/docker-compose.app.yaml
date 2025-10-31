@@ -136,9 +136,6 @@ services:
       - --certificatesResolvers.${CERTRESOLVER}.acme.dnsChallenge.resolvers=${DNSCHALLENGE_RESOLVERS}
     # entrypoint: ['your-entrypoint.sh']                                                                                                                        # Override default container entrypoint
     environment:                                                                                                                                                # Environment variables for container configuration
-      APP_UID: "${APP_UID}"                                                                                                                                     # Passing the APP_UID to be able to use the variable in the docker container
-      APP_GID: "${APP_GID}"                                                                                                                                     # Passing the APP_GID to be able to use the variable in the docker container
-      DIRECTORIES: "${DIRECTORIES}"                                                                                                                             # Passing the DIRECTORIES to be able to use the variable in the docker container
       CF_DNS_API_TOKEN_FILE: /run/secrets/CF_DNS_API_TOKEN                                                                                                      # Cloudflare API token
       TRAEFIK_DOMAIN: ${TRAEFIK_DOMAIN}                                                                                                                         # Passing the domain name to traefik container to be able to use the variable in rules
       TRAEFIK_DOMAIN_1: ${TRAEFIK_DOMAIN_1:-}                                                                                                                   # Passing the second domain name to traefik container to be able to use the variable in rules
