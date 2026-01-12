@@ -1,0 +1,169 @@
+---
+x-required-services:
+  - redis
+  - mariadb
+  - mariadb_maintenance
+  - seafile_notification-server
+
+services:
+  app:
+    ######################################################################
+    # --- CONTAINER BASICS
+    ######################################################################
+    image: ${IMAGE:?Image required}                                                                                                                             # Pull image from registry; uncomment build section below for local images
+    container_name: ${APP_NAME:?App name required}                                                                                                              # Stable container name for easier orchestration
+    hostname: ${APP_NAME}                                                                                                                                       # Hostname inside the container for consistent service discovery
+    restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
+    # build:                                                                                                                                                    # Optional: build image from local Dockerfile
+    #   context: .
+    #   dockerfile: Dockerfile
+
+    ######################################################################
+    # --- SECURITY SETTINGS
+    ######################################################################
+    # user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                 # Run as non-root by default; override only if the image already handles user switching
+    # read_only: true                                                                                                                                           # Lock root filesystem; only declared volumes remain writable
+    # cap_drop:                                                                                                                                                 # Drop all capabilities by default
+    #   - ALL
+    # cap_add:                                                                                                                                                  # Add only the minimum required capabilities (e.g., NET_BIND_SERVICE)
+    #   - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
+      - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
+
+    ######################################################################
+    # --- SYSTEM RUNTIME
+    ######################################################################
+    init: true                                                                                                                                                  # PID 1 is tini – handles zombies properly
+    stop_grace_period: 30s                                                                                                                                      # Give app time to shut down gracefully
+    oom_score_adj: -500                                                                                                                                         # Reduce likelihood of getting killed under memory pressure
+    tmpfs: &seafile_common_tmpfs                                                                                                                                # Ephemeral storage in RAM, auto-cleared on restart
+      - /run                                                                                                                                                    # Runtime files (PID files, sockets, etc.)
+      - /tmp                                                                                                                                                    # Short-lived temp files; faster and auto-cleared on restart
+      - /var/tmp                                                                                                                                                # Some apps expect /var/tmp; remove this line if the workload does not touch it
+
+    ######################################################################
+    # --- FILESYSTEM & SECRETS
+    ######################################################################
+    volumes:                                                                                                                                                    # Bind only the paths the app truly needs (avoid mounting host root paths)
+      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronise container time with host time
+      - /etc/timezone:/etc/timezone:rw                                                                                                                          # Supply timezone information
+      - ./appdata:/shared:rw
+      # - ./appdata/seafile-data:/shared/seafile/seafile-data:rw                                                                                                  # AStores all library file blocks and related FS metadata (the big data)
+      # - ./appdata/seahub-data:/shared/seafile/seahub-data:rw                                                                                                    # Web UI assets: avatars, thumbnails, branding uploads
+      # - ./appdata/pro-data:/shared/seafile/pro-data:rw                                                                                                          # Professional Edition data (e.g., full-text indexes). Not used by CE
+      # - ./appdata/conf:/shared/seafile/conf:rw                                                                                                                  # Configuration for Seafile/Seahub
+      # - ./appdata/seafile/logs:/shared/seafile/logs:rw                                                                                                          # Seafile and internal Nginx logs. Prefer SEAFILE_LOG_TO_STDOUT=true if log files aren’t needed
+    secrets: &seafile_common_secrets                                                                                                                            # Enforce provision of sensitive material via Docker secrets
+      - REDIS_PASSWORD
+      - MARIADB_PASSWORD
+      - MARIADB_ROOT_PASSWORD
+
+    ######################################################################
+    # --- NETWORKING / REVERSE PROXY
+    ######################################################################
+    labels:                                                                                                                                                     # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
+      - "traefik.enable=true"                                                                                                                                   # Enable Traefik routing for this container
+      - "traefik.http.routers.${APP_NAME}-rtr.rule=${TRAEFIK_HOST}"                                                                                             # Traefik router rule; supply escaped Host() rule via .env
+      - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internal container port exposed to the proxy
+    #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optional middleware example (authentication, rate limiting, etc.)
+    # ports:                                                                                                                                                    # Optional: exposed ports
+    #   - 8080:80
+    # expose:                                                                                                                                                   # Optional: expose without publishing
+    #   - 80
+    networks:                                                                                                                                                   # Define which Docker networks the container connects to (controls communication and isolation)
+      - backend
+      - frontend
+    # extra_hosts:                                                                                                                                              # Optional: manual host entries
+    #   - "host.docker.internal:host-gateway"
+
+    ######################################################################
+    # --- RUNTIME / ENVIRONMENT
+    ######################################################################
+    # command: ['your', 'default', 'command']                                                                                                                   # Override default container command
+    entrypoint:                                                                                                                                                 # Override default container entrypoint
+      - /bin/sh
+      - -c
+      - |
+          export SEAFILE_MYSQL_DB_PASSWORD="$$(cat /run/secrets/MARIADB_PASSWORD)" \
+                INIT_SEAFILE_MYSQL_ROOT_PASSWORD="$$(cat /run/secrets/MARIADB_ROOT_PASSWORD)" \
+                REDIS_PASSWORD="$$(cat /run/secrets/REDIS_PASSWORD)"; \
+          exec /sbin/my_init -- /scripts/enterpoint.sh
+    environment: &seafile_common_environment                                                                                                                    # Environment variables for container configuration
+      # Redis
+      REDIS_HOST: ${APP_NAME}-redis                                                                                                                             # Redis server host
+      REDIS_PORT: ${REDIS_PORT:-6379}                                                                                                                           # Redis server port
+
+      # MariaDB
+      SEAFILE_MYSQL_DB_HOST: ${APP_NAME}-mariadb                                                                                                                # The host of MySQL
+      SEAFILE_MYSQL_DB_PORT: ${DB_PORT:-3306}                                                                                                                   # The port of MySQL
+      SEAFILE_MYSQL_DB_USER: ${APP_NAME}                                                                                                                        # The user of MySQL (database - user can be found in conf/seafile.conf)
+      SEAFILE_MYSQL_DB_CCNET_DB_NAME: ${SEAFILE_MYSQL_DB_CCNET_DB_NAME:-ccnet_db}                                                                               # The database name of ccnet
+      SEAFILE_MYSQL_DB_SEAFILE_DB_NAME: ${SEAFILE_MYSQL_DB_SEAFILE_DB_NAME:-seafile_db}                                                                         # The database name of seafile
+      SEAFILE_MYSQL_DB_SEAHUB_DB_NAME: ${SEAFILE_MYSQL_DB_SEAHUB_DB_NAME:-seahub_db}                                                                            # The database name of seahub
+
+      # Seafile
+      TIME_ZONE: ${TIME_ZONE:-UTC}                                                                                                                              # Time zone
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?Variable is not set or empty}                                                                                         # JWT_PRIVATE_KEY, A random string with a length of no less than 32 characters is required for Seafile, which can be generated by using pwgen -s 40 1
+      SEAFILE_SERVER_PROTOCOL: ${SEAFILE_SERVER_PROTOCOL:-http}                                                                                                 # Seafile server protocol (http or https)
+      SEAFILE_SERVER_HOSTNAME: ${SEAFILE_SERVER_HOSTNAME:?Variable is not set or empty}                                                                         # Seafile server hostname or domain
+      INIT_SEAFILE_ADMIN_EMAIL: ${INIT_SEAFILE_ADMIN_EMAIL:?App name required}                                                                                  # Admin username (me@example.com)
+      INIT_SEAFILE_ADMIN_PASSWORD: ${INIT_SEAFILE_ADMIN_PASSWORD:?App name required}                                                                            # Admin password
+      NON_ROOT: ${NON_ROOT:-false}                                                                                                                              # Run Seafile container without a root user
+      ENABLE_GO_FILESERVER: true                                                                                                                                # Enables Seafile’s Go-based file server instead of the legacy one — faster, more scalable, and supports streaming downloads (better performance under high concurrency)
+      SEAFILE_LOG_TO_STDOUT: true                                                                                                                               # Sends Seafile logs to standard output so you can view them via docker logs and collect them with container log pipelines instead of writing to log files
+
+      # Seafile Notification Server
+      ENABLE_NOTIFICATION_SERVER: ${ENABLE_NOTIFICATION_SERVER:-false}                                                                                          # Enable (true) or disable (false) notification feature for Seafile
+      NOTIFICATION_SERVER_URL: ${SEAFILE_SERVER_PROTOCOL:-http}://${SEAFILE_SERVER_HOSTNAME}/notification                                                       # Used to do the connection between client (i.e., user's browser) and notification server
+      INNER_NOTIFICATION_SERVER_URL: http://${APP_NAME}_notification-server:8083                                                                                # Used to do the connection between Seafile server and notification server
+      NOTIFICATION_SERVER_LOG_LEVEL: ${NOTIFICATION_SERVER_LOG_LEVEL:-info}
+
+      # Seafile SeaDoc Server
+      ENABLE_SEADOC: ${ENABLE_SEADOC:-false}                                                                                                                    # Enable (true) or disable (false) SeaDoc feature for Seafile
+      SEADOC_SERVER_URL: ${SEAFILE_SERVER_PROTOCOL:-http}://${SEAFILE_SERVER_HOSTNAME}/sdoc-server                                                              # Used to do the connection between client (i.e., user's browser) and SeaDoc server
+    logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
+      driver: "json-file"
+      options:
+        max-size: "10m"                                                                                                                                         # Max log file size before rotation
+        max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
+    healthcheck:                                                                                                                                                # Periodic container health check to ensure service availability
+      test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]                                                                                              # Adjust URL/tooling to match the image (install curl or replace with wget/netcat)
+      interval: 30s                                                                                                                                             # Time between checks
+      timeout: 10s                                                                                                                                              # Time to wait for response
+      retries: 3                                                                                                                                                # Number of retries before marking unhealthy
+      start_period: 10s                                                                                                                                         # Give the container time to initialize before health checks start
+    stdin_open: false                                                                                                                                           # Optional: keep STDIN open
+    tty: false                                                                                                                                                  # Disable terminal allocation; used for non-interactive containers
+
+    ######################################################################
+    # --- DEPENDENCIES
+    ######################################################################
+    depends_on:                                                                                                                                                 # Ensure these services report healthy status before starting this one
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    ######################################################################
+    # --- RESOURCE LIMITS
+    ######################################################################
+    # mem_limit: ${MEM_LIMIT:-512m}                                                                                                                             # Upper bound memory allocation (raise cautiously once monitored)
+    # cpus: ${CPU_LIMIT:-1.0}                                                                                                                                   # Fractional CPU quota; increase only when the workload needs it
+    # pids_limit: ${PIDS_LIMIT:-128}                                                                                                                            # Cap number of processes/threads to mitigate fork bombs
+    # shm_size: ${SHM_SIZE:-64m}                                                                                                                                # Shared memory segment; bump for browsers or multimedia workloads
+    # ulimits:                                                                                                                                                  # Additional fine-grained limits (e.g., nofile, nproc)
+
+# volumes:
+#   data:
+#     driver: local                                                                                                                                             # Local named volume placeholder (swap for cloud/backed driver if required)
+
+# secrets:                                                                                                                                                      # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
+#   APP_PASSWORD:
+#     file: ${APP_PASSWORD_PATH:?Secret path required}/${APP_PASSWORD_FILENAME:?Secret filename required}                                                       # Load secret material from host (ensure correct permissions)
+
+networks:
+  frontend:
+    external: true
+  backend:
+    external: true
