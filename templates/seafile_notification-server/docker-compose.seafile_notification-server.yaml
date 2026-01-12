@@ -24,9 +24,9 @@ services:
     # --- SECURITY SETTINGS
     ######################################################################
     # user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                 # Run as non-root by default; override only if the image already handles user switching
-    # read_only: true                                                                                                                                           # Lock root filesystem; only declared volumes remain writable
-    # cap_drop:                                                                                                                                                 # Drop all capabilities by default
-    #   - ALL
+    read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
+    cap_drop:                                                                                                                                                   # Drop all capabilities by default
+      - ALL
     # cap_add:                                                                                                                                                  # Add only the minimum required capabilities (e.g., NET_BIND_SERVICE)
     #   - NET_BIND_SERVICE
     security_opt:
@@ -47,7 +47,7 @@ services:
     volumes:                                                                                                                                                    # Bind only the paths the app truly needs (avoid mounting host root paths)
       - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronise container time with host time
       - /etc/timezone:/etc/timezone:rw                                                                                                                          # Supply timezone information
-      - ./appdata/seafile_notification-server/logs:/shared/seafile/logs:rw                                                                                      # Seafile Notification Server logs
+      - ./appdata/seafile/logs:/shared/seafile/logs:rw                                                                                                          # Seafile Notification Server logs
     secrets: *seafile_common_secrets                                                                                                                            # Enforce provision of sensitive material via Docker secrets
 
     ######################################################################
