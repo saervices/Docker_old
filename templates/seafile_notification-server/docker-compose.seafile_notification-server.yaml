@@ -4,8 +4,6 @@ x-required-anchors:
     - tmpfs
   secrets: &seafile_common_secrets
     - secrets
-  entrypoint: &seafile_common_entrypoint
-    - entrypoint
   environment: &seafile_common_environment
     - environment
 
@@ -74,7 +72,12 @@ services:
     # --- RUNTIME / ENVIRONMENT
     ######################################################################
     # command: ['your', 'default', 'command']                                                                                                                   # Override default container command
-    entrypoint: *seafile_common_entrypoint                                                                                                                      # Override default container entrypoint
+    entrypoint:                                                                                                                                                 # Override default container entrypoint
+      - /bin/sh
+      - -c
+      - |
+        export SEAFILE_MYSQL_DB_PASSWORD="$$(cat /run/secrets/MARIADB_PASSWORD)"; \
+        exec /opt/seafile/notification-server -c /opt/seafile -l /shared/seafile/logs/notification-server.log
     environment: *seafile_common_environment                                                                                                                    # Environment variables for container configuration
     logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
       driver: "json-file"
@@ -82,7 +85,7 @@ services:
         max-size: "10m"                                                                                                                                         # Max log file size before rotation
         max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
     healthcheck:                                                                                                                                                # Periodic container health check to ensure service availability
-      test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]                                                                                              # Adjust URL/tooling to match the image (install curl or replace with wget/netcat)
+      test: ["CMD-SHELL", "bash -lc ': >/dev/tcp/127.0.0.1/8083'"]                                                                                              # Adjust URL/tooling to match the image (install curl or replace with wget/netcat)
       interval: 30s                                                                                                                                             # Time between checks
       timeout: 10s                                                                                                                                              # Time to wait for response
       retries: 3                                                                                                                                                # Number of retries before marking unhealthy
@@ -98,9 +101,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      seafile:
+      app:
         condition: service_healthy
-
     ######################################################################
     # --- RESOURCE LIMITS
     ######################################################################
