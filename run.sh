@@ -1126,7 +1126,8 @@ generate_password() {
     done < <(find "$src_dir" -maxdepth 1 -type f -print0)
   fi
 
-  local charset='A-Za-z0-9_=\-,.:/@()[]{}<>?!^*|#$~'
+  #local charset='A-Za-z0-9_=\-,.:/@()[]{}<>?!^*|#$~'
+  local charset='A-Za-z0-9_,.='
   local pw
   for f in "${files[@]}"; do
     pw=$(LC_ALL=C tr -dc "$charset" </dev/urandom | head -c "$pw_length")
