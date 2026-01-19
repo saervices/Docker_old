@@ -56,7 +56,7 @@ services:
     labels:                                                                                                                                                     # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
       - "traefik.enable=true"                                                                                                                                   # Enable Traefik routing for this container
       - "traefik.http.routers.${APP_NAME}_notification-server-rtr.rule=${TRAEFIK_HOST} && PathPrefix(`/notification`)"                                          # Traefik router rule; supply escaped Host() rule via .env
-      - "traefik.http.routers.${APP_NAME}_notification-server-rtr.middlewares=websocket-security-headers@file"
+      # - "traefik.http.routers.${APP_NAME}_notification-server-rtr.middlewares=websocket-security-headers@file"
       - "traefik.http.services.${APP_NAME}_notification-server-svc.loadBalancer.server.port=8083"                                                               # Internal container port exposed to the proxy
     # ports:                                                                                                                                                    # Optional: exposed ports
     #   - 8080:80
