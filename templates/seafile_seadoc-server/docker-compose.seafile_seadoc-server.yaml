@@ -4,8 +4,6 @@ x-required-anchors:
     - tmpfs
   secrets: &seafile_common_secrets
     - secrets
-  environment: &seafile_common_environment
-    - environment
 
 services:
   seafile_seadoc-server:
@@ -24,9 +22,9 @@ services:
     # --- SECURITY SETTINGS
     ######################################################################
     # user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                 # Run as non-root by default; override only if the image already handles user switching
-    read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
-    cap_drop:                                                                                                                                                   # Drop all capabilities by default
-      - ALL
+    # read_only: true                                                                                                                                           # Lock root filesystem; only declared volumes remain writable
+    # cap_drop:                                                                                                                                                 # Drop all capabilities by default
+    #   - ALL
     # cap_add:                                                                                                                                                  # Add only the minimum required capabilities (e.g., NET_BIND_SERVICE)
     #   - NET_BIND_SERVICE
     security_opt:
@@ -55,11 +53,10 @@ services:
     ######################################################################
     labels:                                                                                                                                                     # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
       - "traefik.enable=true"                                                                                                                                   # Enable Traefik routing for this container
-      - "traefik.http.routers.${APP_NAME}_seadoc-server-rtr.rule=${TRAEFIK_HOST} && PathPrefix(`/sdoc-server`)"                                                 # Traefik router rule; supply escaped Host() rule via .env
-      - "traefik.http.routers.${APP_NAME}_seadoc-server-rtr.middlewares=websocket-security-headers@file"
-      - "traefik.http.routers.${APP_NAME}_seadoc-sio-server-rtr.rule=${TRAEFIK_HOST} && PathPrefix(`/socket.io`)"                                               # Traefik router rule; supply escaped Host() rule via .env
-      - "traefik.http.routers.${APP_NAME}_seadoc-sio-server-rtr.middlewares=websocket-security-headers@file"
+      - "traefik.http.routers.${APP_NAME}_seadoc-server-rtr.rule=${TRAEFIK_HOST} && (PathPrefix(`/sdoc-server`) || PathPrefix(`/socket.io`))"                   # Traefik router rule; supply escaped Host() rule via .env
       - "traefik.http.services.${APP_NAME}_seadoc-server-svc.loadBalancer.server.port=80"                                                                       # Internal container port exposed to the proxy
+      - "traefik.http.routers.${APP_NAME}_seadoc-server-rtr.middlewares=${APP_NAME}_seadoc-server-middlewares@docker"                                           # Attach the middleware chain to the router so requests are processed before forwarding
+      - "traefik.http.middlewares.${APP_NAME}_seadoc-server-middlewares.stripprefix.prefixes=/sdoc-server"                                                      # Strip /sdoc-server from the incoming URL path so the service handles routes at /
     # ports:                                                                                                                                                    # Optional: exposed ports
     #   - 8080:80
     # expose:                                                                                                                                                   # Optional: expose without publishing
@@ -80,16 +77,16 @@ services:
       - |
           export DB_PASSWORD="$$(cat /run/secrets/MARIADB_PASSWORD)"; \
           exec /sbin/my_init -- /scripts/enterpoint.sh
-    environment: #*seafile_common_environment                                                                                                                   # Environment variables for container configuration
-      DB_HOST: ${APP_NAME}-mariadb                                                                                                                              # The host of MySQL
-      DB_PORT: ${DB_PORT:-3306}                                                                                                                                 # The port of MySQL
-      DB_USER: ${APP_NAME}                                                                                                                                      # The user of MySQL (database - user can be found in conf/seafile.conf)
-      #DB_PASSWORD: ${SEAFILE_MYSQL_DB_PASSWORD:?Variable is not set or empty}
+    environment:                                                                                                                                                # Environment variables for container configuration
+      DB_HOST: ${APP_NAME}-mariadb                                                                                                                              # Seafile MySQL host
+      # DB_PORT: ${DB_PORT:-3306}                                                                                                                               # Seafile MySQL port
+      DB_USER: ${APP_NAME}                                                                                                                                      # Seafile MySQL user (database - user can be found in conf/seafile.conf)
+      # DB_PASSWORD: ${SEAFILE_MYSQL_DB_PASSWORD:?Variable is not set or empty}                                                                                 # Seafile MySQL password
       DB_NAME: ${SEAFILE_MYSQL_DB_SEAHUB_DB_NAME:-seahub_db}                                                                                                    # The database name of seahub
       TIME_ZONE: ${TIME_ZONE:-UTC}                                                                                                                              # Time zone
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?Variable is not set or empty}                                                                                         # JWT_PRIVATE_KEY, A random string with a length of no less than 32 characters is required for Seafile, which can be generated by using pwgen -s 40 1
       NON_ROOT: ${NON_ROOT:-false}                                                                                                                              # Run Seafile container without a root user
-      SEAHUB_SERVICE_URL: ${SEAFILE_SERVER_PROTOCOL:-http}://${SEAFILE_SERVER_HOSTNAME:?Variable is not set or empty}
+      SEAHUB_SERVICE_URL: ${SEAFILE_SERVER_PROTOCOL:-http}://${SEAFILE_SERVER_HOSTNAME:?Variable is not set or empty}                                           # Seafile URL
     logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
       driver: "json-file"
       options:
@@ -127,9 +124,9 @@ services:
 #   data:
 #     driver: local                                                                                                                                             # Local named volume placeholder (swap for cloud/backed driver if required)
 
-# secrets:                                                                                                                                                        # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
+# secrets:                                                                                                                                                      # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
 #   JWT_PRIVATE_KEY:
-#     file: ${JWT_PRIVATE_KEY_PATH:?Secret path required}/${JWT_PRIVATE_KEY_FILENAME:?Secret filename required}                                                   # Load secret material from host (ensure correct permissions)
+#     file: ${JWT_PRIVATE_KEY_PATH:?Secret path required}/${JWT_PRIVATE_KEY_FILENAME:?Secret filename required}                                                 # Load secret material from host (ensure correct permissions)
 
 # networks:
 #   frontend:
