@@ -4,6 +4,7 @@ x-required-services:
   - mariadb
   - mariadb_maintenance
   - seafile_notification-server
+  - seafile_seadoc-server
 
 services:
   app:
