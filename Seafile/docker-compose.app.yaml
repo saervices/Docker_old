@@ -50,15 +50,18 @@ services:
       - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronise container time with host time
       - /etc/timezone:/etc/timezone:rw                                                                                                                          # Supply timezone information
       - ./appdata:/shared:rw
-      # - ./appdata/seafile-data:/shared/seafile/seafile-data:rw                                                                                                  # AStores all library file blocks and related FS metadata (the big data)
-      # - ./appdata/seahub-data:/shared/seafile/seahub-data:rw                                                                                                    # Web UI assets: avatars, thumbnails, branding uploads
-      # - ./appdata/pro-data:/shared/seafile/pro-data:rw                                                                                                          # Professional Edition data (e.g., full-text indexes). Not used by CE
-      # - ./appdata/conf:/shared/seafile/conf:rw                                                                                                                  # Configuration for Seafile/Seahub
-      # - ./appdata/seafile/logs:/shared/seafile/logs:rw                                                                                                          # Seafile and internal Nginx logs. Prefer SEAFILE_LOG_TO_STDOUT=true if log files aren’t needed
+      - ./appdata/config/seahub_settings_extra.py:/shared/seafile/conf/seahub_settings_extra.py:ro                                                              # OAuth/Authentik configuration
+      # - ./appdata/seafile-data:/shared/seafile/seafile-data:rw                                                                                                # AStores all library file blocks and related FS metadata (the big data)
+      # - ./appdata/seahub-data:/shared/seafile/seahub-data:rw                                                                                                  # Web UI assets: avatars, thumbnails, branding uploads
+      # - ./appdata/pro-data:/shared/seafile/pro-data:rw                                                                                                        # Professional Edition data (e.g., full-text indexes). Not used by CE
+      # - ./appdata/conf:/shared/seafile/conf:rw                                                                                                                # Configuration for Seafile/Seahub
+      # - ./appdata/seafile/logs:/shared/seafile/logs:rw                                                                                                        # Seafile and internal Nginx logs. Prefer SEAFILE_LOG_TO_STDOUT=true if log files aren’t needed
     secrets: &seafile_common_secrets                                                                                                                            # Enforce provision of sensitive material via Docker secrets
       - REDIS_PASSWORD
       - MARIADB_PASSWORD
       - MARIADB_ROOT_PASSWORD
+      - OAUTH_CLIENT_ID                                                                                                                                         # Authentik OAuth client ID
+      - OAUTH_CLIENT_SECRET                                                                                                                                     # Authentik OAuth client secret
 
     ######################################################################
     # --- NETWORKING / REVERSE PROXY
@@ -123,6 +126,13 @@ services:
       # Seafile SeaDoc Server
       ENABLE_SEADOC: ${ENABLE_SEADOC:-false}                                                                                                                    # Enable (true) or disable (false) SeaDoc feature for Seafile
       SEADOC_SERVER_URL: ${SEAFILE_SERVER_PROTOCOL:-http}://${SEAFILE_SERVER_HOSTNAME}/sdoc-server                                                              # Used to do the connection between client (i.e., user's browser) and SeaDoc server
+
+      # WebDAV (SeafDAV)
+      ENABLE_SEAFDAV: ${ENABLE_SEAFDAV:-false}                                                                                                                  # Enable WebDAV access via /seafdav endpoint
+      SEAFDAV_FASTCGI: ${SEAFDAV_FASTCGI:-true}                                                                                                                 # Use FastCGI mode (required behind reverse proxy)
+
+      # OAuth/Authentik
+      OAUTH_PROVIDER_DOMAIN: ${OAUTH_PROVIDER_DOMAIN:-}                                                                                                         # Authentik provider domain (e.g., https://authentik.example.com)
     logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
       driver: "json-file"
       options:
@@ -159,9 +169,11 @@ services:
 #   data:
 #     driver: local                                                                                                                                             # Local named volume placeholder (swap for cloud/backed driver if required)
 
-# secrets:                                                                                                                                                      # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
-#   APP_PASSWORD:
-#     file: ${APP_PASSWORD_PATH:?Secret path required}/${APP_PASSWORD_FILENAME:?Secret filename required}                                                       # Load secret material from host (ensure correct permissions)
+secrets:                                                                                                                                                        # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
+  OAUTH_CLIENT_ID:
+    file: ${OAUTH_CLIENT_ID_PATH:?Secret path required}/${OAUTH_CLIENT_ID_FILENAME:?Secret filename required}                                                   # Load secret material from host (ensure correct permissions)
+  OAUTH_CLIENT_SECRET:
+    file: ${OAUTH_CLIENT_SECRET_PATH:?Secret path required}/${OAUTH_CLIENT_SECRET_FILENAME:?Secret filename required}                                           # Load secret material from host (ensure correct permissions)
 
 networks:
   frontend:
