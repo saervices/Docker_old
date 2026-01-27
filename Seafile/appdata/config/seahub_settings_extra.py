@@ -140,7 +140,10 @@ ENABLE_TWO_FACTOR_AUTH = False
 # =============================================================================
 
 # CSRF Protection - Add your domain(s) here
-CSRF_TRUSTED_ORIGINS = [os.environ.get('SEAFILE_SERVER_HOSTNAME', 'seafile.example.com')]
+# Django 4.0+ requires full URL with scheme (https://)
+_seafile_protocol = os.environ.get('SEAFILE_SERVER_PROTOCOL', 'https')
+_seafile_hostname = os.environ.get('SEAFILE_SERVER_HOSTNAME', 'seafile.example.com')
+CSRF_TRUSTED_ORIGINS = [f'{_seafile_protocol}://{_seafile_hostname}']
 
 # Secure cookies (requires HTTPS)
 CSRF_COOKIE_SECURE = True
