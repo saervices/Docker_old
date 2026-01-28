@@ -14,7 +14,7 @@ SEAHUB_SETTINGS="/shared/seafile/conf/seahub_settings.py"
 IMPORT_LINE="from seahub_settings_extra import *"
 
 # Wait for seahub_settings.py to exist (in case Seafile creates it on first run)
-TIMEOUT=30
+TIMEOUT=10
 ELAPSED=0
 while [[ ! -f "$SEAHUB_SETTINGS" ]] && [[ $ELAPSED -lt $TIMEOUT ]]; do
     echo "[INFO] Waiting for $SEAHUB_SETTINGS to be created..."
