@@ -46,10 +46,11 @@ OAUTH_USER_INFO_URL = f'{_oauth_provider_domain}/application/o/userinfo/'
 OAUTH_SCOPE = ["openid", "profile", "email"]
 
 # Attribute mapping from OAuth provider to Seafile
+# Since Seafile 11.0+, 'sub' is the primary external identifier
 OAUTH_ATTRIBUTE_MAP = {
-    "email": (True, "email"),   # Required: email address
-    "name": (False, "name"),    # Optional: display name
-    "sub": (False, "uid"),      # Optional: unique identifier
+    "sub": (True, "uid"),            # Required: unique identifier (primary key)
+    "email": (True, "contact_email"), # Required: email address
+    "name": (False, "name"),          # Optional: display name
 }
 
 # =============================================================================
