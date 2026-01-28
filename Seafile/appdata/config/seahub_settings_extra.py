@@ -33,7 +33,7 @@ OAUTH_CLIENT_SECRET = _read_secret('OAUTH_CLIENT_SECRET')
 _oauth_provider_domain = os.environ.get('OAUTH_PROVIDER_DOMAIN', 'https://authentik.example.com')
 _seafile_url = f"{os.environ.get('SEAFILE_SERVER_PROTOCOL', 'https')}://{os.environ.get('SEAFILE_SERVER_HOSTNAME', 'seafile.example.com')}"
 
-OAUTH_REDIRECT_URL = f'{_seafile_url}/oauth/callback'
+OAUTH_REDIRECT_URL = f'{_seafile_url}/oauth/callback/'
 
 # Authentik Provider Configuration
 OAUTH_PROVIDER = 'authentik'
