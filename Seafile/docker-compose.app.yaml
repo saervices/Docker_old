@@ -131,7 +131,6 @@ services:
 
       # WebDAV (SeafDAV)
       ENABLE_SEAFDAV: ${ENABLE_SEAFDAV:-false}                                                                                                                  # Enable WebDAV access via /seafdav endpoint
-      SEAFDAV_FASTCGI: ${SEAFDAV_FASTCGI:-true}                                                                                                                 # Use FastCGI mode (required behind reverse proxy)
 
       # OAuth/Authentik
       OAUTH_PROVIDER_DOMAIN: ${OAUTH_PROVIDER_DOMAIN:-}                                                                                                         # Authentik provider domain (e.g., https://authentik.example.com)
