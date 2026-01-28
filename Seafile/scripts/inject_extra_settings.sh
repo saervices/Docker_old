@@ -23,7 +23,7 @@ while [[ ! -f "$SEAHUB_SETTINGS" ]] && [[ $ELAPSED -lt $TIMEOUT ]]; do
 done
 
 if [[ ! -f "$SEAHUB_SETTINGS" ]]; then
-    echo "[ERROR] $SEAHUB_SETTINGS not found after ${TIMEOUT}s. Cannot inject extra settings."
+    echo "[ERROR] $SEAHUB_SETTINGS not found after ${TIMEOUT}s. Cannot inject extra settings. Please restart the Seafile service/container so extra settings can be applied."
     exit 1
 fi
 
