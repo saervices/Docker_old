@@ -2,6 +2,7 @@
 """
 Seahub Extra Settings - OAuth/Authentik Configuration
 This file is automatically loaded by Seafile after seahub_settings.py
+Only settings that DIFFER from defaults are set here.
 """
 import os
 
@@ -9,14 +10,8 @@ import os
 # Authentik OAuth Settings
 # =============================================================================
 
-# Enable OAuth authentication
 ENABLE_OAUTH = True
 
-# User creation and activation policies
-OAUTH_CREATE_UNKNOWN_USER = True      # Create user on first login
-OAUTH_ACTIVATE_USER_AFTER_CREATION = True  # Auto-activate new users
-
-# OAuth Client Credentials (loaded from Docker secrets)
 def _read_secret(secret_name, default=''):
     """Read a Docker secret from /run/secrets/"""
     secret_path = f'/run/secrets/{secret_name}'
@@ -29,145 +24,145 @@ def _read_secret(secret_name, default=''):
 OAUTH_CLIENT_ID = _read_secret('OAUTH_CLIENT_ID')
 OAUTH_CLIENT_SECRET = _read_secret('OAUTH_CLIENT_SECRET')
 
-# OAuth URLs - constructed from environment variables
 _oauth_provider_domain = os.environ.get('OAUTH_PROVIDER_DOMAIN', 'https://authentik.example.com')
-_seafile_url = f"{os.environ.get('SEAFILE_SERVER_PROTOCOL', 'https')}://{os.environ.get('SEAFILE_SERVER_HOSTNAME', 'seafile.example.com')}"
+_seafile_protocol = os.environ.get('SEAFILE_SERVER_PROTOCOL', 'https')
+_seafile_hostname = os.environ.get('SEAFILE_SERVER_HOSTNAME', 'seafile.example.com')
+_seafile_url = f'{_seafile_protocol}://{_seafile_hostname}'
 
 OAUTH_REDIRECT_URL = f'{_seafile_url}/oauth/callback/'
-
-# Authentik Provider Configuration
 OAUTH_PROVIDER = 'authentik'
 OAUTH_PROVIDER_DOMAIN = _oauth_provider_domain
 OAUTH_AUTHORIZATION_URL = f'{_oauth_provider_domain}/application/o/authorize/'
 OAUTH_TOKEN_URL = f'{_oauth_provider_domain}/application/o/token/'
 OAUTH_USER_INFO_URL = f'{_oauth_provider_domain}/application/o/userinfo/'
-
-# OAuth Scopes
 OAUTH_SCOPE = ["openid", "profile", "email"]
 
-# Attribute mapping from OAuth provider to Seafile
-# Since Seafile 11.0+, 'sub' is the primary external identifier
 OAUTH_ATTRIBUTE_MAP = {
-    "sub": (True, "uid"),            # Required: unique identifier (primary key)
-    "email": (True, "contact_email"), # Required: email address
-    "name": (False, "name"),          # Optional: display name
+    "sub": (True, "uid"),
+    "email": (True, "contact_email"),
+    "name": (False, "name"),
 }
 
 # =============================================================================
 # SSO Login Settings
 # =============================================================================
 
-# Redirect to OAuth login page (comment out to show both login options)
+# Redirect to OAuth login page directly
 LOGIN_URL = f'{_seafile_url}/oauth/login/'
 
-# Enable system browser for SSO (supports hardware 2FA)
-# Requires: Seafile 11.0.0+, sync client 9.0.5+, drive client 3.0.8+
+# Desktop/Drive client SSO via system browser (supports hardware 2FA)
 CLIENT_SSO_VIA_LOCAL_BROWSER = True
 
-# Force SSO login - disable email/password login completely (since 11.0.7)
-# Users can ONLY login via OAuth/Authentik
+# Disable email/password login completely - SSO only (since 11.0.7)
 DISABLE_ADFS_USER_PWD_LOGIN = True
 
+# App-specific passwords for WebDAV/desktop clients (required with SSO-only)
+ENABLE_APP_SPECIFIC_PASSWORD = True
+
 # =============================================================================
-# User Registration & Access Control
+# Access Control & Privacy
 # =============================================================================
 
-# Disable self-registration (users created only via OAuth or admin)
-ENABLE_SIGNUP = False
-
-# Disable global address book (users can't see other users)
+# Users can't see other users (default: True)
 ENABLE_GLOBAL_ADDRESSBOOK = False
+
+# Hide organization tab and global user list (default: False)
+CLOUD_MODE = True
 
 # =============================================================================
 # Session Security
 # =============================================================================
 
-# Session expires when browser closes
+# Session expires when browser closes (default: False)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
-# Session cookie age in seconds (default: 2 weeks = 1209600)
-# SESSION_COOKIE_AGE = 86400  # 24 hours - uncomment to override
+# Max session lifetime for tabs that stay open (default: 2 weeks)
+SESSION_COOKIE_AGE = 86400  # 24 hours
 
-# Update session on every request (extends session while active)
+# Extend session on every request while user is active (default: False)
 SESSION_SAVE_EVERY_REQUEST = True
 
 # =============================================================================
 # Login Security
 # =============================================================================
 
-# Max failed login attempts before CAPTCHA (default: 3)
-LOGIN_ATTEMPT_LIMIT = 5
-
-# Freeze/deactivate user after too many failed attempts
+# Freeze user account after too many failed attempts (default: False)
 FREEZE_USER_ON_LOGIN_FAILED = True
 
 # =============================================================================
-# Password Policy (for local users if any remain)
+# Password Policy (defense-in-depth for local admin accounts)
 # =============================================================================
 
-# Minimum password length
+# Minimum password length (default: 6)
 USER_PASSWORD_MIN_LENGTH = 12
 
-# Password strength level (1-4, how many character types required)
-# 3 = at least 3 of: uppercase, lowercase, digits, special chars
-USER_PASSWORD_STRENGTH_LEVEL = 3
+# Require all 4 character types: uppercase, lowercase, digits, special (default: 3)
+USER_PASSWORD_STRENGTH_LEVEL = 4
 
-# Require strong passwords
+# Enforce complexity requirements (default: False)
 USER_STRONG_PASSWORD_REQUIRED = True
 
 # =============================================================================
 # Share Link Security
 # =============================================================================
 
-# Force password on all share links
-SHARE_LINK_FORCE_USE_PASSWORD = False  # Set True for stricter security
+# Force password on all share links (default: False)
+SHARE_LINK_FORCE_USE_PASSWORD = True
 
-# Minimum password length for share links
+# Minimum password length for share links (default: 8)
 SHARE_LINK_PASSWORD_MIN_LENGTH = 10
 
-# Maximum expiration days for share links (0 = no limit)
+# Maximum expiration days for share links (default: 0 = no limit)
 SHARE_LINK_EXPIRE_DAYS_MAX = 90
-
-# =============================================================================
-# Two-Factor Authentication
-# =============================================================================
-
-# Disabled - 2FA is handled by Authentik SSO
-# Enable only if you have local users that need Seafile-native 2FA
-ENABLE_TWO_FACTOR_AUTH = False
 
 # =============================================================================
 # CSRF & Cookie Security
 # =============================================================================
 
-# CSRF Protection - Add your domain(s) here
-# Django 4.0+ requires full URL with scheme (https://)
-_seafile_protocol = os.environ.get('SEAFILE_SERVER_PROTOCOL', 'https')
-_seafile_hostname = os.environ.get('SEAFILE_SERVER_HOSTNAME', 'seafile.example.com')
+# CSRF trusted origins (required for Django 4.0+ with HTTPS)
 CSRF_TRUSTED_ORIGINS = [f'{_seafile_protocol}://{_seafile_hostname}']
 
-# Secure cookies (requires HTTPS)
+# Secure cookies - HTTPS only (default: False)
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
-# SameSite cookie policy
-CSRF_COOKIE_SAMESITE = 'Strict'
-SESSION_COOKIE_SAMESITE = 'Lax'
-
 # =============================================================================
-# WebDAV / App Passwords
+# Django Security
 # =============================================================================
 
-# Allow users to generate app-specific passwords for WebDAV, desktop clients, etc.
-# Required when DISABLE_ADFS_USER_PWD_LOGIN is True
-ENABLE_APP_SPECIFIC_PASSWORD = True
+# Prevent HTTP Host header attacks (required for production)
+ALLOWED_HOSTS = [_seafile_hostname]
 
 # =============================================================================
-# Admin Settings
+# Upload & Download Limits
 # =============================================================================
 
-# Disable changing settings via web UI (use config files only)
-# ENABLE_SETTINGS_VIA_WEB = False
+# Max upload file size in MB (default: 0 = unlimited)
+MAX_UPLOAD_FILE_SIZE = int(os.environ.get('MAX_UPLOAD_FILE_SIZE', 0))
 
-# Allow admin to view unencrypted libraries (set False for privacy)
-# ENABLE_SYS_ADMIN_VIEW_REPO = False
+# Max number of files per upload (default: 1000)
+MAX_NUMBER_OF_FILES_FOR_FILEUPLOAD = int(os.environ.get('MAX_NUMBER_OF_FILES_FOR_FILEUPLOAD', 500))
+
+# =============================================================================
+# Encrypted Libraries
+# =============================================================================
+
+# Minimum password length for encrypted libraries (default: 8)
+REPO_PASSWORD_MIN_LENGTH = 12
+
+# Use strongest encryption version (default: 2)
+ENCRYPTED_LIBRARY_VERSION = 4
+
+# =============================================================================
+# File Locking
+# =============================================================================
+
+# Auto-unlock files after X days (default: 0 = never)
+FILE_LOCK_EXPIRATION_DAYS = 7
+
+# =============================================================================
+# Admin
+# =============================================================================
+
+# Config-as-Code: disable settings changes via web UI (default: True)
+ENABLE_SETTINGS_VIA_WEB = False
