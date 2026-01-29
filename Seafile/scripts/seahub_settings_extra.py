@@ -131,7 +131,8 @@ SESSION_COOKIE_SECURE = True
 # =============================================================================
 
 # Prevent HTTP Host header attacks (required for production)
-ALLOWED_HOSTS = [_seafile_hostname]
+# Include localhost/127.0.0.1 for Docker health checks
+ALLOWED_HOSTS = [_seafile_hostname, 'localhost', '127.0.0.1']
 
 # =============================================================================
 # Upload & Download Limits
