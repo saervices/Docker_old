@@ -64,7 +64,7 @@ ENABLE_APP_SPECIFIC_PASSWORD = True
 # =============================================================================
 
 # Users can't see other users (default: True)
-ENABLE_GLOBAL_ADDRESSBOOK = False
+ENABLE_GLOBAL_ADDRESSBOOK = True
 
 # Hide organization tab and global user list (default: False)
 CLOUD_MODE = True
