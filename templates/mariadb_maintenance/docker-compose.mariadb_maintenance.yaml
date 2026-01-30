@@ -31,6 +31,7 @@ services:
       - CHOWN                                                                                                                                                   # Required to change file ownership, e.g. during file operations
     security_opt:
       - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
+      - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
 
     ######################################################################
     # --- SYSTEM RUNTIME
