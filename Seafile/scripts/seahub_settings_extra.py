@@ -59,6 +59,15 @@ DISABLE_ADFS_USER_PWD_LOGIN = True
 # App-specific passwords for WebDAV/desktop clients (required with SSO-only)
 ENABLE_APP_SPECIFIC_PASSWORD = True
 
+# Disable password change for all users - passwords are managed via Authentik
+ENABLE_CHANGE_PASSWORD = False
+
+# Also disable for SSO users specifically (defense-in-depth)
+ENABLE_SSO_USER_CHANGE_PASSWORD = False
+
+# Redirect to Authentik after logout (OIDC Single Logout)
+LOGOUT_REDIRECT_URL = f'{_oauth_provider_domain}/application/o/seafile/end-session/'
+
 # =============================================================================
 # Access Control & Privacy
 # =============================================================================
@@ -68,6 +77,15 @@ ENABLE_GLOBAL_ADDRESSBOOK = True
 
 # Hide organization tab and global user list (default: False)
 CLOUD_MODE = True
+
+# Prevent users from deleting their own accounts (default: True)
+ENABLE_DELETE_ACCOUNT = False
+
+# Prevent users from editing their profile info (default: True)
+ENABLE_UPDATE_USER_INFO = False
+
+# Show watermark on file previews in the browser (default: False)
+ENABLE_WATERMARK = True
 
 # =============================================================================
 # Session Security
@@ -103,6 +121,16 @@ USER_PASSWORD_STRENGTH_LEVEL = 4
 USER_STRONG_PASSWORD_REQUIRED = True
 
 # =============================================================================
+# WebDAV Password Policy
+# =============================================================================
+
+# Minimum password length for WebDAV secrets (default: 1)
+WEBDAV_SECRET_MIN_LENGTH = 12
+
+# Require 3 of 4 character types: uppercase, lowercase, digits, special (default: 1)
+WEBDAV_SECRET_STRENGTH_LEVEL = 3
+
+# =============================================================================
 # Share Link Security
 # =============================================================================
 
@@ -111,6 +139,9 @@ SHARE_LINK_FORCE_USE_PASSWORD = True
 
 # Minimum password length for share links (default: 8)
 SHARE_LINK_PASSWORD_MIN_LENGTH = 10
+
+# Require all 4 character types in share link passwords (default: 1)
+SHARE_LINK_PASSWORD_STRENGTH_LEVEL = 4
 
 # Maximum expiration days for share links (default: 0 = no limit)
 SHARE_LINK_EXPIRE_DAYS_MAX = 90
@@ -121,6 +152,9 @@ SHARE_LINK_EXPIRE_DAYS_MAX = 90
 
 # CSRF trusted origins (required for Django 4.0+ with HTTPS)
 CSRF_TRUSTED_ORIGINS = [f'{_seafile_protocol}://{_seafile_hostname}']
+
+# Restrict CSRF cookie to same-site requests only (Django default: 'Lax')
+CSRF_COOKIE_SAMESITE = 'Strict'
 
 # Secure cookies - HTTPS only (default: False)
 CSRF_COOKIE_SECURE = True
@@ -160,6 +194,19 @@ ENCRYPTED_LIBRARY_VERSION = 4
 
 # Auto-unlock files after X days (default: 0 = never)
 FILE_LOCK_EXPIRATION_DAYS = 7
+
+# =============================================================================
+# Site Customization
+# =============================================================================
+
+# Default language for UI and email notifications (default: 'en')
+LANGUAGE_CODE = 'de'
+
+# Name shown in emails and welcome messages (default: 'Seafile')
+SITE_NAME = 'Seafile'
+
+# Browser tab title (default: 'Private Seafile')
+SITE_TITLE = 'Private Seafile'
 
 # =============================================================================
 # Admin
