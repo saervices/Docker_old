@@ -27,8 +27,10 @@ services:
     read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
     cap_drop:                                                                                                                                                   # Drop all capabilities by default
       - ALL
-    # cap_add:                                                                                                                                                  # Add only the minimum required capabilities (e.g., NET_BIND_SERVICE)
-    #   - NET_BIND_SERVICE
+    cap_add:                                                                                                                                                    # Add only the minimum required capabilities
+      - SETUID                                                                                                                                                  # Required for user context switching
+      - SETGID                                                                                                                                                  # Required for group management
+      - CHOWN                                                                                                                                                   # Required for file ownership
     security_opt:
       - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
       - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
