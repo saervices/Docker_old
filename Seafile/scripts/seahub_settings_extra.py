@@ -88,6 +88,14 @@ ENABLE_UPDATE_USER_INFO = False
 ENABLE_WATERMARK = True
 
 # =============================================================================
+# Desktop Client Settings
+# =============================================================================
+
+# Disable sync with any folder - force central Seafile folder (default: False)
+# NOTE: since version 4.2.4
+DISABLE_SYNC_WITH_ANY_FOLDER = True
+
+# =============================================================================
 # Session Security
 # =============================================================================
 
