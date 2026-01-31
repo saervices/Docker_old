@@ -61,7 +61,7 @@ services:
       - "traefik.http.routers.${APP_NAME}_seadoc-server-rtr.middlewares=${APP_NAME}_seadoc-server-middlewares@docker"                                           # Attach the middleware chain to the router so requests are processed before forwarding
       - "traefik.http.middlewares.${APP_NAME}_seadoc-server-middlewares.stripprefix.prefixes=/sdoc-server"                                                      # Strip /sdoc-server from the incoming URL path so the service handles routes at /
     # ports:                                                                                                                                                    # Optional: exposed ports
-    #   - 8080:80
+    #   - 8084:80
     # expose:                                                                                                                                                   # Optional: expose without publishing
     #   - 80
     networks:                                                                                                                                                   # Define which Docker networks the container connects to (controls communication and isolation)

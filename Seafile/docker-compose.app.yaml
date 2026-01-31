@@ -76,7 +76,7 @@ services:
       - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internal container port exposed to the proxy
     #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optional middleware example (authentication, rate limiting, etc.)
     # ports:                                                                                                                                                    # Optional: exposed ports
-    #   - 8080:80
+    #   - ${TRAEFIK_PORT}:80
     # expose:                                                                                                                                                   # Optional: expose without publishing
     #   - 80
     networks:                                                                                                                                                   # Define which Docker networks the container connects to (controls communication and isolation)
