@@ -37,6 +37,7 @@ x-required-services:
 | `APP_UID` / `APP_GID` | `8000` | UID/GID for volume ownership. |
 | `TRAEFIK_HOST` | **Required** | Traefik host rule (e.g. `Host(\`seafile.example.com\`)`). |
 | `TRAEFIK_PORT` | `80` | Internal container port. |
+| `SEAFILE_DATA_PATH` | `./appdata/seafile/seafile-data` | Library data storage path. See [Separating Library Data Storage](#separating-library-data-storage). |
 
 ### Server Settings
 
@@ -144,10 +145,47 @@ This approach keeps custom settings separate from the auto-generated `seahub_set
 | `./scripts/inject_extra_settings.sh` | `/usr/local/bin/inject_extra_settings.sh` | `ro` | Settings injector script. |
 
 Subdirectories created automatically under `./appdata`:
-- `seafile-data/` — Library file blocks and metadata
+- `seafile-data/` — Library file blocks and metadata (the bulk of storage)
 - `seahub-data/` — Web UI assets (avatars, thumbnails)
 - `conf/` — Configuration files
 - `logs/` — Application logs (if not using stdout)
+
+### Separating Library Data Storage
+
+By default, all data lives under `./appdata`. After initial setup, you can move the library data (`seafile-data/`) to a separate location (e.g., a different disk, ZFS dataset, or NFS mount).
+
+**Requirements:**
+- Seafile must have completed initial setup first (directories and database schema created)
+- The stack must be stopped during migration
+
+**Steps:**
+
+1. Stop the stack:
+   ```bash
+   docker compose -f docker-compose.main.yaml down
+   ```
+
+2. Move the data to the new location:
+   ```bash
+   mv ./appdata/seafile/seafile-data /mnt/storage/seafile-data
+   ```
+
+3. Set `SEAFILE_DATA_PATH` in `.env`:
+   ```bash
+   SEAFILE_DATA_PATH=/mnt/storage/seafile-data
+   ```
+
+4. Uncomment the volume mount in `docker-compose.app.yaml`:
+   ```yaml
+   - ${SEAFILE_DATA_PATH:-./appdata/seafile/seafile-data}:/shared/seafile/seafile-data:rw
+   ```
+
+5. Start the stack:
+   ```bash
+   docker compose -f docker-compose.main.yaml up -d
+   ```
+
+> **Important:** Do NOT enable the separate volume mount before the initial setup. Seafile needs the unified `./appdata:/shared` mount during first run to create its directory structure and configuration files. The separate mount overlays the path created by the base mount, so enabling it on a fresh install results in an empty `seafile-data/` directory that Seafile cannot initialize correctly.
 
 ---
 

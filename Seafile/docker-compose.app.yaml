@@ -55,11 +55,7 @@ services:
       - ./scripts/seahub_settings_extra.py:/shared/seafile/conf/seahub_settings_extra.py:ro                                                                     # Extra Seahub settings (OAuth, security, etc.)
       - ./scripts/inject_extra_settings.sh:/usr/local/bin/inject_extra_settings.sh:ro                                                                           # Auto-inject extra settings import
       - ./appdata:/shared:rw
-      # - ./appdata/seafile-data:/shared/seafile/seafile-data:rw                                                                                                # AStores all library file blocks and related FS metadata (the big data)
-      # - ./appdata/seahub-data:/shared/seafile/seahub-data:rw                                                                                                  # Web UI assets: avatars, thumbnails, branding uploads
-      # - ./appdata/pro-data:/shared/seafile/pro-data:rw                                                                                                        # Professional Edition data (e.g., full-text indexes). Not used by CE
-      # - ./appdata/conf:/shared/seafile/conf:rw                                                                                                                # Configuration for Seafile/Seahub
-      # - ./appdata/seafile/logs:/shared/seafile/logs:rw                                                                                                        # Seafile and internal Nginx logs. Prefer SEAFILE_LOG_TO_STDOUT=true if log files aren’t needed
+      # - ${SEAFILE_DATA_PATH:-./appdata/seafile/seafile-data}:/shared/seafile/seafile-data:rw                                                                  # Optional: separate library data storage (enable AFTER initial setup, see README)
     secrets: &seafile_common_secrets                                                                                                                            # Enforce provision of sensitive material via Docker secrets
       - REDIS_PASSWORD
       - MARIADB_PASSWORD
