@@ -1,0 +1,48 @@
+http:
+  routers:
+    seafile-rtr:                                                                                                                                                      # Main Seafile web UI (Seahub)
+      rule: >
+        Host(`seafile.{{env "TRAEFIK_DOMAIN"}}`)
+      #  || Host(`seafile.{{env "TRAEFIK_DOMAIN_1"}}`)
+      #  || Host(`seafile.{{env "TRAEFIK_DOMAIN_2"}}`)
+      # middlewares:                                                                                                                                                   # Optional: Add specific middlewares to this router
+      #   - authentik-proxy@file
+      service: seafile-svc
+
+    seafile-notification-rtr:                                                                                                                                          # Notification server (WebSocket)
+      rule: >
+        Host(`seafile.{{env "TRAEFIK_DOMAIN"}}`) && PathPrefix(`/notification`)
+      #  || (Host(`seafile.{{env "TRAEFIK_DOMAIN_1"}}`) && PathPrefix(`/notification`))
+      #  || (Host(`seafile.{{env "TRAEFIK_DOMAIN_2"}}`) && PathPrefix(`/notification`))
+      service: seafile-notification-svc
+
+    seafile-seadoc-rtr:                                                                                                                                                # SeaDoc document editor
+      rule: >
+        Host(`seafile.{{env "TRAEFIK_DOMAIN"}}`) && (PathPrefix(`/sdoc-server`) || PathPrefix(`/socket.io`))
+      #  || (Host(`seafile.{{env "TRAEFIK_DOMAIN_1"}}`) && (PathPrefix(`/sdoc-server`) || PathPrefix(`/socket.io`)))
+      #  || (Host(`seafile.{{env "TRAEFIK_DOMAIN_2"}}`) && (PathPrefix(`/sdoc-server`) || PathPrefix(`/socket.io`)))
+      middlewares:
+        - seafile-seadoc-stripprefix
+      service: seafile-seadoc-svc
+
+  middlewares:
+    seafile-seadoc-stripprefix:                                                                                                                                        # Strips /sdoc-server prefix before forwarding to SeaDoc backend
+      stripPrefix:
+        prefixes:
+          - /sdoc-server
+
+  services:
+    seafile-svc:                                                                                                                                                       # Seafile main container (internal Nginx on port 80)
+      loadBalancer:
+        servers:
+          - url: "http://192.168.10.110:80/"                                                                                                                            # Adjust the IP to your Seafile LXC
+
+    seafile-notification-svc:                                                                                                                                          # Notification server (port 8083)
+      loadBalancer:
+        servers:
+          - url: "http://192.168.10.110:8083/"                                                                                                                          # Adjust the IP to your Seafile LXC
+
+    seafile-seadoc-svc:                                                                                                                                                # SeaDoc server (container port 80, remapped to 8084 on LXC)
+      loadBalancer:
+        servers:
+          - url: "http://192.168.10.110:8084/"                                                                                                                          # Adjust the IP to your Seafile LXC
