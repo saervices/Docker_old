@@ -1,0 +1,16 @@
+http:
+  routers:
+    pbs-rtr:                                                                                                                                                    # Adjust the router name (e.g. [HOSTNAME]-rtr)
+      rule: >                                                                                                                                                   # Adjust the [HOSTNAME]
+        Host(`pbs.{{env "TRAEFIK_DOMAIN"}}`)
+      #  || Host(`sub.{{env "TRAEFIK_DOMAIN_1"}}`)
+      #  || Host(`sub.{{env "TRAEFIK_DOMAIN_2"}}`)
+      # middlewares:                                                                                                                                            # Optional: Add specific middlewares to this router
+      #   - middleware@file
+      service: pbs-svc                                                                                                                                          # Adjust the service name (e.g. [HOSTNAME]-svc)
+
+  services:
+    pbs-svc:                                                                                                                                                    # Adjust the service name to match the service name above
+      loadBalancer:
+        servers:
+          - url: "https://192.168.20.251:8007/"                                                                                                                 # Adjust the url to your application
