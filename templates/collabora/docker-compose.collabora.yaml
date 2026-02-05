@@ -1,0 +1,97 @@
+---
+services:
+  collabora:
+    ######################################################################
+    # --- CONTAINER BASICS
+    ######################################################################
+    image: ${COLLABORA_IMAGE:?Image required}                                                                                                                         # Pull image from registry
+    container_name: ${APP_NAME:?App name required}-collabora                                                                                                          # Stable container name for easier orchestration
+    hostname: ${APP_NAME}-collabora                                                                                                                                   # Hostname inside the container for consistent service discovery
+    restart: unless-stopped                                                                                                                                           # Automatically restart unless manually stopped
+
+    ######################################################################
+    # --- SECURITY SETTINGS
+    ######################################################################
+    # user: not applicable (Collabora manages its own user switching from root to cool)
+    # read_only: true -- NOT compatible (Collabora writes to /opt/cool/, /etc/coolwsd/, /var/cache/)
+    cap_drop:                                                                                                                                                         # Drop all capabilities by default
+      - ALL
+    cap_add:                                                                                                                                                          # Add only the minimum required capabilities
+      - SETUID                                                                                                                                                        # Required for user context switching (root -> cool)
+      - SETGID                                                                                                                                                        # Required for group management
+      - CHOWN                                                                                                                                                         # Required for file ownership changes
+      - FOWNER                                                                                                                                                        # Required for file permission operations in coolwsd sandbox
+      - MKNOD                                                                                                                                                         # Required for device node creation in coolwsd sandbox
+      - SYS_CHROOT                                                                                                                                                    # Required for coolwsd chroot-based document sandbox
+    security_opt:
+      - no-new-privileges:true                                                                                                                                        # Prevent privilege escalation
+      - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                                  # Require AppArmor confinement on compatible hosts
+
+    ######################################################################
+    # --- SYSTEM RUNTIME
+    ######################################################################
+    init: true                                                                                                                                                        # PID 1 is tini – handles zombies properly
+    stop_grace_period: 30s                                                                                                                                            # Give app time to shut down gracefully
+    oom_score_adj: -500                                                                                                                                               # Reduce likelihood of getting killed under memory pressure
+    tmpfs:                                                                                                                                                            # Ephemeral storage in RAM, auto-cleared on restart
+      - /run                                                                                                                                                          # Runtime files (PID files, sockets, etc.)
+      - /tmp                                                                                                                                                          # Short-lived temp files; faster and auto-cleared on restart
+      - /var/tmp                                                                                                                                                      # Some apps expect /var/tmp
+
+    ######################################################################
+    # --- FILESYSTEM & SECRETS
+    ######################################################################
+    volumes:                                                                                                                                                          # Bind only the paths the app truly needs
+      - /etc/localtime:/etc/localtime:ro                                                                                                                              # Synchronise container time with host time
+      - /etc/timezone:/etc/timezone:ro                                                                                                                                # Supply timezone information
+
+    ######################################################################
+    # --- NETWORKING / REVERSE PROXY
+    ######################################################################
+    labels:                                                                                                                                                           # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
+      - "traefik.enable=true"                                                                                                                                         # Enable Traefik routing for this container
+      - "traefik.http.routers.${APP_NAME}_collabora-rtr.rule=${COLLABORA_HOST}"                                                                                      # Traefik router rule; Collabora needs its OWN domain (e.g., Host(`office.example.com`))
+      - "traefik.http.services.${APP_NAME}_collabora-svc.loadBalancer.server.port=9980"                                                                              # Internal container port (coolwsd listens on 9980)
+      # - "traefik.http.routers.${APP_NAME}_collabora-rtr.middlewares=websocket-security-headers@file"                                                                # Optional: explicit WebSocket headers (Traefik v2+ handles upgrades automatically)
+    # ports:                                                                                                                                                          # Optional: exposed ports
+    #   - 9980:9980
+    networks:                                                                                                                                                         # Define which Docker networks the container connects to
+      - frontend                                                                                                                                                      # Reverse proxy network (Traefik routes external traffic)
+      - backend                                                                                                                                                       # Internal application network
+
+    ######################################################################
+    # --- RUNTIME / ENVIRONMENT
+    ######################################################################
+    environment:                                                                                                                                                      # Environment variables for Collabora configuration
+      aliasgroup1: ${COLLABORA_ALIASGROUP1:?WOPI host URL pattern required}                                                                                           # Allowed WOPI client origins (regex-escaped URL, e.g., https://seafile\\.example\\.com)
+      server_name: ${COLLABORA_SERVER_NAME:?Server hostname required}                                                                                                 # Public hostname of the Collabora server (must match Traefik rule)
+      dictionaries: ${COLLABORA_DICTIONARIES:-en_US}                                                                                                                  # Space-separated list of spell-check dictionaries (e.g., en_US de_DE fr_FR)
+      extra_params: ${COLLABORA_EXTRA_PARAMS:---o:ssl.enable=false --o:ssl.termination=true}                                                                          # SSL disabled internally; Traefik handles TLS termination
+      DONT_GEN_SSL_CERT: 1                                                                                                                                            # Skip internal SSL certificate generation (Traefik provides TLS)
+    logging:                                                                                                                                                          # Configure log driver and limits to control log size and rotation
+      driver: "json-file"
+      options:
+        max-size: "10m"                                                                                                                                               # Max log file size before rotation
+        max-file: "3"                                                                                                                                                 # Keep up to 3 rotated log files
+    healthcheck:                                                                                                                                                      # Periodic container health check to ensure service availability
+      test: ["CMD-SHELL", "curl -sf http://localhost:9980/hosting/discovery > /dev/null || exit 1"]                                                                    # WOPI discovery endpoint confirms coolwsd is running
+      interval: 30s                                                                                                                                                   # Time between checks
+      timeout: 10s                                                                                                                                                    # Time to wait for response
+      retries: 3                                                                                                                                                      # Number of retries before marking unhealthy
+      start_period: 30s                                                                                                                                               # Collabora needs time to initialize coolwsd; allow extra startup time
+    stdin_open: false                                                                                                                                                 # No interactive input needed
+    tty: false                                                                                                                                                        # Disable terminal allocation; non-interactive container
+
+    ######################################################################
+    # --- RESOURCE LIMITS
+    ######################################################################
+    # mem_limit: ${MEM_LIMIT:-1g}                                                                                                                                     # Collabora benefits from more memory for document rendering (1GB recommended minimum)
+    # cpus: ${CPU_LIMIT:-2.0}                                                                                                                                         # Document rendering is CPU-intensive; 2 cores recommended
+    # pids_limit: ${PIDS_LIMIT:-256}                                                                                                                                  # coolwsd spawns multiple child processes per document
+    # shm_size: ${SHM_SIZE:-128m}                                                                                                                                     # Shared memory for document processing
+
+networks:
+  frontend:
+    external: true
+  backend:
+    external: true
