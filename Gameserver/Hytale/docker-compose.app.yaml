@@ -1,0 +1,97 @@
+---
+services:
+  app:
+    ######################################################################
+    # --- CONTAINER BASICS
+    ######################################################################
+    image: ${IMAGE:?Image required}
+    container_name: ${APP_NAME:?App name required}
+    hostname: ${APP_NAME}
+    restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
+
+    ######################################################################
+    # --- SECURITY SETTINGS
+    ######################################################################
+    # user: '1000:1000'                                                                                                                                         # Image handles user switching via PUID/PGID
+    read_only: false                                                                                                                                            # Game server needs writable filesystem for saves and auto-updates
+    cap_drop:                                                                                                                                                   # Drop all capabilities by default
+      - ALL
+    cap_add:                                                                                                                                                    # Add only the minimum required capabilities
+      - SETUID                                                                                                                                                  # Allows changing the effective user ID (e.g. during service startup)
+      - SETGID                                                                                                                                                  # Allows changing the effective group ID
+      - CHOWN                                                                                                                                                   # Required to change file ownership, e.g. during file operations
+      - FOWNER                                                                                                                                                  # Bypass permission checks on files you own
+      - DAC_READ_SEARCH                                                                                                                                         # Bypass file read/search permission checks
+      - DAC_OVERRIDE                                                                                                                                            # Allows bypassing standard file permission checks; required for internal user management
+    security_opt:
+      - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
+
+    ######################################################################
+    # --- SYSTEM RUNTIME
+    ######################################################################
+    init: true                                                                                                                                                  # PID 1 is tini – handles zombies properly
+    stop_grace_period: 30s                                                                                                                                      # Give app time to shut down gracefully
+    oom_score_adj: -500                                                                                                                                         # Reduce likelihood of getting killed under memory pressure
+    tmpfs:                                                                                                                                                      # Ephemeral storage in RAM, auto-cleared on restart
+      - /run                                                                                                                                                    # Mount /run as tmpfs for runtime files (PID files, sockets, etc.)
+
+    ######################################################################
+    # --- FILESYSTEM & SECRETS
+    ######################################################################
+    volumes:                                                                                                                                                    # Mount external storage or host directories into the container for persistent data or config
+      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Set container time to host time
+      - /etc/timezone:/etc/timezone:ro                                                                                                                          # Pass timezone info
+      - data:/home/hytale/server-files:rw                                                                                                                       # Server data volume (saves, config, mods, backups)
+
+    ######################################################################
+    # --- NETWORKING / REVERSE PROXY
+    ######################################################################
+    ports:                                                                                                                                                      # Hytale uses QUIC protocol over UDP
+      - '${DEFAULT_PORT:-5520}:${DEFAULT_PORT:-5520}/udp'
+    networks:                                                                                                                                                   # Standalone game server, no reverse proxy needed
+      - frontend
+
+    ######################################################################
+    # --- RUNTIME / ENVIRONMENT
+    ######################################################################
+    environment:                                                                                                                                                # Environment variables for container configuration
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      SERVER_NAME: ${SERVER_NAME}
+      DEFAULT_PORT: ${DEFAULT_PORT:-5520}
+      MAX_PLAYERS: ${MAX_PLAYERS:-20}
+      VIEW_DISTANCE: ${VIEW_DISTANCE:-12}
+      AUTH_MODE: ${AUTH_MODE:-authenticated}
+      MAX_MEMORY: ${MAX_MEMORY:-8G}
+      ENABLE_BACKUPS: ${ENABLE_BACKUPS:-false}
+      BACKUP_FREQUENCY: ${BACKUP_FREQUENCY:-30}
+      DISABLE_SENTRY: ${DISABLE_SENTRY:-true}
+      USE_AOT_CACHE: ${USE_AOT_CACHE:-true}
+      DOWNLOAD_ON_START: ${DOWNLOAD_ON_START:-true}
+    logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
+      driver: "json-file"
+      options:
+        max-size: "10m"                                                                                                                                         # Max log file size before rotation
+        max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
+    stdin_open: true                                                                                                                                            # Required for OAuth authentication flow on first start
+    tty: true                                                                                                                                                   # Allocate terminal for interactive server console
+
+    ######################################################################
+    # --- DEPENDENCIES
+    ######################################################################
+    # No external dependencies – standalone game server
+
+    ######################################################################
+    # --- SYSTEM LIMITS
+    ######################################################################
+    # mem_limit: ${MEM_LIMIT:-10g}                                                                                                                              # Adjust based on view distance and player count
+    # cpus: ${CPU_LIMIT:-2.0}
+    # pids_limit: ${PIDS_LIMIT:-256}
+
+volumes:
+  data:
+    driver: local
+
+networks:
+  frontend:
+    external: true
