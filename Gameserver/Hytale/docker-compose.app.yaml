@@ -23,6 +23,7 @@ services:
       - FOWNER                                                                                                                                                  # Bypass permission checks on files you own
       - DAC_READ_SEARCH                                                                                                                                         # Bypass file read/search permission checks
       - DAC_OVERRIDE                                                                                                                                            # Allows bypassing standard file permission checks; required for internal user management
+      - KILL                                                                                                                                                    # Required for graceful server shutdown (sending signals to the Java process)
     security_opt:
       - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
 
@@ -73,6 +74,12 @@ services:
       options:
         max-size: "10m"                                                                                                                                         # Max log file size before rotation
         max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
+    healthcheck:                                                                                                                                                # Periodic health check via Java process detection (no HTTP/TCP endpoint, QUIC/UDP only)
+      test: ['CMD-SHELL', 'pgrep -f HytaleServer.jar']                                                                                                         # Check if the Hytale server Java process is running
+      interval: 30s                                                                                                                                             # Time between checks
+      timeout: 5s                                                                                                                                               # Time to wait for response
+      retries: 3                                                                                                                                                # Number of retries before marking unhealthy
+      start_period: 120s                                                                                                                                        # Grace period for server download, AOT cache build and startup
     stdin_open: true                                                                                                                                            # Required for OAuth authentication flow on first start
     tty: true                                                                                                                                                   # Allocate terminal for interactive server console
 

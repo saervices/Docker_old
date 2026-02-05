@@ -7,6 +7,7 @@ Compose bundle for the Hytale dedicated server image (`indifferentbroccoli/hytal
 ## Components
 - **app** -- Dedicated server container exposing UDP `5520` (QUIC protocol).
 - No database dependencies; runs standalone on the `frontend` network.
+- Health check via Java process detection (`pgrep -f HytaleServer.jar`), with a 120s start period for initial download and AOT cache build.
 
 ---
 
@@ -52,7 +53,7 @@ Update `Gameserver/Hytale/.env` to change the image tag or adjust server setting
 
 ## Maintenance Hints
 - View distance exponentially impacts RAM usage. Keep it at 12 or below for stable performance.
-- Container runs with additional capabilities (`CHOWN`, `FOWNER`, `DAC_OVERRIDE`) required by the upstream image to manage server files.
+- Container runs with additional capabilities (`CHOWN`, `FOWNER`, `DAC_OVERRIDE`, `KILL`) required by the upstream image to manage server files and send shutdown signals to the Java process.
 - Set `ENABLE_BACKUPS=true` and adjust `BACKUP_FREQUENCY` for automatic world backups.
 - Back up the `data` volume regularly; all saves, config, and mods reside there.
 - Set `AUTH_MODE=offline` for LAN-only servers that do not require Hytale account authentication.
