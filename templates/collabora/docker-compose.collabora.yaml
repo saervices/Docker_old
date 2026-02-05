@@ -12,8 +12,8 @@ services:
     ######################################################################
     # --- SECURITY SETTINGS
     ######################################################################
-    # user: not applicable (Collabora manages its own user switching from root to cool)
-    # read_only: true -- NOT compatible (Collabora writes to /opt/cool/, /etc/coolwsd/, /var/cache/)
+    # user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                       # Run as non-root by default; override only if the image already handles user switching -- NOT applicable (Collabora manages its own user switching from root to cool)
+    # read_only: true                                                                                                                                                 # Lock root filesystem; only declared volumes remain writable -- NOT compatible (Collabora writes to /opt/cool/, /etc/coolwsd/, /var/cache/)
     cap_drop:                                                                                                                                                         # Drop all capabilities by default
       - ALL
     cap_add:                                                                                                                                                          # Add only the minimum required capabilities
@@ -24,7 +24,7 @@ services:
       - MKNOD                                                                                                                                                         # Required for device node creation in coolwsd sandbox
       - SYS_CHROOT                                                                                                                                                    # Required for coolwsd chroot-based document sandbox
     security_opt:
-      - no-new-privileges:true                                                                                                                                        # Prevent privilege escalation
+      # - no-new-privileges:true                                                                                                                                      # Prevent privilege escalation -- NOT applicable (NOTE: no-new-privileges is intentionally NOT set for Collabora. Reason: coolforkit-caps binary requires Linux file capabilities (cap_sys_chroot, cap_fowner, cap_chown) which are set via setcap on the binary. no-new-privileges would prevent these from taking effect)
       - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                                  # Require AppArmor confinement on compatible hosts
 
     ######################################################################
