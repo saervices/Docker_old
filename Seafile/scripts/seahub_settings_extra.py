@@ -204,6 +204,27 @@ ENCRYPTED_LIBRARY_VERSION = 4
 FILE_LOCK_EXPIRATION_DAYS = 7
 
 # =============================================================================
+# Collabora Online (WOPI Integration)
+# =============================================================================
+
+ENABLE_OFFICE_WEB_APP = os.environ.get('ENABLE_OFFICE_WEB_APP', 'false').lower() == 'true'
+
+if ENABLE_OFFICE_WEB_APP:
+    _collabora_hostname = os.environ.get('COLLABORA_SERVER_NAME', 'office.example.com')
+    OFFICE_WEB_APP_BASE_URL = f'https://{_collabora_hostname}/hosting/capabilities'
+    OFFICE_WEB_APP_NAME = 'Collabora Online'
+    OFFICE_WEB_APP_FILE_EXTENSION = (
+        'ods', 'xls', 'xlsb', 'xlsm', 'xlsx',
+        'ppsx', 'ppt', 'pptm', 'pptx',
+        'doc', 'docm', 'docx',
+    )
+    OFFICE_WEB_APP_EDIT_FILE_EXTENSION = (
+        'ods', 'xls', 'xlsb', 'xlsm', 'xlsx',
+        'ppsx', 'ppt', 'pptm', 'pptx',
+        'doc', 'docm', 'docx',
+    )
+
+# =============================================================================
 # Site Customization
 # =============================================================================
 

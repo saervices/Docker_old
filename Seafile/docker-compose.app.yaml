@@ -5,6 +5,7 @@ x-required-services:
   - mariadb_maintenance
   - seafile_notification-server
   - seafile_seadoc-server
+  - collabora
 
 services:
   app:
@@ -127,6 +128,10 @@ services:
       # Seafile SeaDoc Server
       ENABLE_SEADOC: ${ENABLE_SEADOC:-false}                                                                                                                    # Enable (true) or disable (false) SeaDoc feature for Seafile
       SEADOC_SERVER_URL: ${SEAFILE_SERVER_PROTOCOL:-http}://${SEAFILE_SERVER_HOSTNAME}/sdoc-server                                                              # Used to do the connection between client (i.e., user's browser) and SeaDoc server
+
+      # Collabora Online (Office)
+      ENABLE_OFFICE_WEB_APP: ${ENABLE_OFFICE_WEB_APP:-false}                                                                                                    # Enable (true) or disable (false) Collabora Online office editing via WOPI
+      COLLABORA_SERVER_NAME: ${COLLABORA_SERVER_NAME:-office.example.com}                                                                                       # Public hostname of the Collabora server (used in seahub_settings_extra.py)
 
       # WebDAV (SeafDAV)
       ENABLE_SEAFDAV: ${ENABLE_SEAFDAV:-false}                                                                                                                  # Enable WebDAV access via /seafdav endpoint
