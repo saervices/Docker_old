@@ -131,7 +131,7 @@ services:
 
       # Collabora Online (Office)
       ENABLE_OFFICE_WEB_APP: ${ENABLE_OFFICE_WEB_APP:-false}                                                                                                    # Enable (true) or disable (false) Collabora Online office editing via WOPI
-      COLLABORA_SERVER_NAME: ${COLLABORA_SERVER_NAME:-office.example.com}                                                                                       # Public hostname of the Collabora server (used in seahub_settings_extra.py)
+      COLLABORA_SERVER_NAME: ${SEAFILE_SERVER_HOSTNAME}                                                                                                         # Defaults to Seafile hostname for path-based routing
 
       # WebDAV (SeafDAV)
       ENABLE_SEAFDAV: ${ENABLE_SEAFDAV:-false}                                                                                                                  # Enable WebDAV access via /seafdav endpoint

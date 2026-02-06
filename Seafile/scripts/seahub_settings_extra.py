@@ -211,17 +211,38 @@ ENABLE_OFFICE_WEB_APP = os.environ.get('ENABLE_OFFICE_WEB_APP', 'false').lower()
 
 if ENABLE_OFFICE_WEB_APP:
     _collabora_hostname = os.environ.get('COLLABORA_SERVER_NAME', 'office.example.com')
-    OFFICE_WEB_APP_BASE_URL = f'https://{_collabora_hostname}/hosting/capabilities'
+
+    # Required: Specify Collabora as the office server type
+    OFFICE_SERVER_TYPE = 'CollaboraOffice'
+
+    # WOPI discovery endpoint (Seafile fetches available actions from here)
+    OFFICE_WEB_APP_BASE_URL = f'https://{_collabora_hostname}/hosting/discovery'
+
+    # Display name in the UI
     OFFICE_WEB_APP_NAME = 'Collabora Online'
+
+    # WOPI access token expiration (30 minutes)
+    WOPI_ACCESS_TOKEN_EXPIRATION = 30 * 60
+
+    # File extensions that can be viewed
     OFFICE_WEB_APP_FILE_EXTENSION = (
-        'ods', 'xls', 'xlsb', 'xlsm', 'xlsx',
-        'ppsx', 'ppt', 'pptm', 'pptx',
-        'doc', 'docm', 'docx',
+        'odt', 'fodt', 'odp', 'fodp', 'ods', 'fods', 'odg', 'fodg',
+        'doc', 'docx', 'docm', 'dot', 'dotx', 'dotm',
+        'xls', 'xlsx', 'xlsm', 'xlsb', 'xla',
+        'ppt', 'pptx', 'pptm', 'ppsx', 'potx', 'potm',
+        'rtf', 'txt', 'csv',
     )
+
+    # Enable editing (not just viewing)
+    ENABLE_OFFICE_WEB_APP_EDIT = True
+
+    # File extensions that can be edited
     OFFICE_WEB_APP_EDIT_FILE_EXTENSION = (
-        'ods', 'xls', 'xlsb', 'xlsm', 'xlsx',
-        'ppsx', 'ppt', 'pptm', 'pptx',
-        'doc', 'docm', 'docx',
+        'odt', 'fodt', 'odp', 'fodp', 'ods', 'fods', 'odg', 'fodg',
+        'doc', 'docx', 'docm',
+        'xls', 'xlsx', 'xlsm', 'xlsb',
+        'ppt', 'pptx', 'pptm', 'ppsx',
+        'rtf', 'txt', 'csv',
     )
 
 # =============================================================================
