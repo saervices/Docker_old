@@ -13,6 +13,7 @@ x-required-services:
   - mariadb_maintenance
   - seafile_notification-server
   - seafile_seadoc-server
+  - collabora
 ```
 
 | Service | Description |
@@ -23,6 +24,7 @@ x-required-services:
 | `mariadb_maintenance` | Automated database backup/restore (template) |
 | `seafile_notification-server` | Real-time push notifications (template) |
 | `seafile_seadoc-server` | Collaborative document editor (template) |
+| `collabora` | Office document editing via WOPI (template) |
 
 ---
 
@@ -65,6 +67,7 @@ x-required-services:
 | `NOTIFICATION_SERVER_LOG_LEVEL` | `info` | Notification server log level. |
 | `ENABLE_SEADOC` | `true` | Collaborative document editor. |
 | `ENABLE_SEAFDAV` | `true` | WebDAV access via `/seafdav`. |
+| `ENABLE_OFFICE_WEB_APP` | `false` | Collabora Online office editing (requires `collabora` template). |
 
 ### OAuth / Authentik
 
@@ -132,6 +135,7 @@ This approach keeps custom settings separate from the auto-generated `seahub_set
 - **Upload Limits**: File size, file count (via env vars)
 - **Encryption**: Library password length, encryption version
 - **Site Customization**: Language, site name, site title
+- **Collabora Online**: WOPI integration, file extensions, internal discovery URL
 - **Admin**: Web UI settings disabled (config-as-code)
 
 ---
@@ -206,6 +210,9 @@ By default, all data lives under `./appdata`. After initial setup, you can move 
 | `${TRAEFIK_HOST}` | `app` | `80` |
 | `${TRAEFIK_HOST} && PathPrefix(\`/notification\`)` | `notification-server` | `8083` |
 | `${TRAEFIK_HOST} && (PathPrefix(\`/sdoc-server\`) \|\| PathPrefix(\`/socket.io\`))` | `seadoc-server` | `80` |
+| `${TRAEFIK_HOST} && (PathPrefix(\`/hosting/discovery\`) \|\| PathPrefix(\`/browser\`) \|\| PathPrefix(\`/cool\`) \|\| PathPrefix(\`/lool\`) \|\| PathPrefix(\`/loleaflet\`))` | `collabora` | `9980` |
+
+> **Note:** Collabora uses path-based routing on the same domain as Seafile. The WOPI discovery is performed internally via Docker network (`COLLABORA_INTERNAL_URL`), while browsers access Collabora through Traefik.
 
 ---
 

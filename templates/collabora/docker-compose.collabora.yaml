@@ -52,7 +52,7 @@ services:
       - "traefik.enable=true"                                                                                                                                         # Enable Traefik routing for this container
       - "traefik.http.routers.${APP_NAME}_collabora-rtr.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`) && (PathPrefix(`/hosting/discovery`) || PathPrefix(`/browser`) || PathPrefix(`/cool`) || PathPrefix(`/lool`) || PathPrefix(`/loleaflet`))"  # Path-based routing on Seafile domain (WOPI endpoints)
       - "traefik.http.routers.${APP_NAME}_collabora-rtr.priority=100"                                                                                                 # Higher priority than main Seafile router to ensure Collabora paths match first
-      - "traefik.http.services.${APP_NAME}_collabora-svc.loadBalancer.server.port=9980"                                                                              # Internal container port (coolwsd listens on 9980)
+      - "traefik.http.services.${APP_NAME}_collabora-svc.loadBalancer.server.port=9980"                                                                               # Internal container port (coolwsd listens on 9980)
       # - "traefik.http.routers.${APP_NAME}_collabora-rtr.middlewares=websocket-security-headers@file"                                                                # Optional: explicit WebSocket headers (Traefik v2+ handles upgrades automatically)
     # ports:                                                                                                                                                          # Optional: exposed ports
     #   - 9980:9980

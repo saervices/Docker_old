@@ -131,7 +131,7 @@ services:
 
       # Collabora Online (Office)
       ENABLE_OFFICE_WEB_APP: ${ENABLE_OFFICE_WEB_APP:-false}                                                                                                    # Enable (true) or disable (false) Collabora Online office editing via WOPI
-      COLLABORA_SERVER_NAME: ${SEAFILE_SERVER_HOSTNAME}                                                                                                         # Defaults to Seafile hostname for path-based routing
+      COLLABORA_INTERNAL_URL: http://${APP_NAME}-collabora:9980                                                                                                 # Internal Docker network URL for WOPI discovery (server-to-server)
 
       # WebDAV (SeafDAV)
       ENABLE_SEAFDAV: ${ENABLE_SEAFDAV:-false}                                                                                                                  # Enable WebDAV access via /seafdav endpoint

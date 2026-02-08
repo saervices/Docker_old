@@ -4,9 +4,24 @@ Collabora Online Development Edition (CODE) provides browser-based document edit
 
 ## Requirements
 
-- **Own domain/subdomain** for Collabora (e.g., `office.example.com`) — cannot share the app's domain with a path prefix
 - **Traefik** (or another reverse proxy) for TLS termination
-- **DNS record** pointing the Collabora domain to your server
+- **Host application** (Seafile, Nextcloud) that supports WOPI integration
+- Networks: `frontend` and `backend` must exist
+
+## Architecture
+
+This template uses **path-based routing** on the host application's domain. No separate subdomain or DNS record for Collabora is required.
+
+```
+Browser ──HTTPS──▶ seafile.example.com/browser/... ──Traefik──▶ collabora:9980
+                   seafile.example.com/cool/...
+                   seafile.example.com/hosting/discovery
+```
+
+| Network | Purpose |
+|---------|---------|
+| `frontend` | Traefik routes browser traffic to Collabora (required for office editing UI) |
+| `backend` | Internal communication with host application (WOPI callbacks) |
 
 ## Configuration
 
@@ -14,23 +29,58 @@ Collabora Online Development Edition (CODE) provides browser-based document edit
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `COLLABORA_IMAGE` | Yes | `collabora/code:latest` | Docker image reference |
-| `COLLABORA_HOST` | Yes | — | Traefik router rule, e.g., `Host(\`office.example.com\`)` |
-| `COLLABORA_SERVER_NAME` | Yes | — | Public hostname (must match `COLLABORA_HOST`) |
+| `COLLABORA_IMAGE` | Yes | `collabora/code` | Docker image reference |
+| `SEAFILE_SERVER_HOSTNAME` | Yes | — | Public hostname of host application (e.g., `seafile.example.com`) |
 | `COLLABORA_ALIASGROUP1` | Yes | — | Allowed WOPI host URL (regex-escaped, e.g., `https://seafile\\.example\\.com`) |
 | `COLLABORA_DICTIONARIES` | No | `en_US` | Space-separated spell-check dictionaries |
 | `COLLABORA_EXTRA_PARAMS` | No | `--o:ssl.enable=false --o:ssl.termination=true` | Additional coolwsd parameters |
 
-### Seafile Integration (WOPI)
+### Traefik Routing
 
-Add to your `seahub_settings_extra.py` (or equivalent configuration):
+The template configures path-based routing on `SEAFILE_SERVER_HOSTNAME`:
+
+| Path Prefix | Description |
+|-------------|-------------|
+| `/hosting/discovery` | WOPI discovery endpoint |
+| `/browser` | Collabora editor UI |
+| `/cool` | Collabora WebSocket/API |
+| `/lool` | Legacy endpoint (LibreOffice Online) |
+| `/loleaflet` | Legacy editor assets |
+
+## Seafile Integration
+
+### 1. Add to x-required-services
+
+In your Seafile `docker-compose.app.yaml`:
+
+```yaml
+x-required-services:
+  - collabora
+```
+
+### 2. Configure Environment Variables
+
+In your Seafile `.env`:
+
+```bash
+ENABLE_OFFICE_WEB_APP=true
+SEAFILE_SERVER_HOSTNAME=seafile.example.com
+```
+
+### 3. Internal Discovery (Recommended)
+
+The Seafile stack uses internal Docker networking for WOPI discovery (server-to-server), while browsers connect via the public URL:
+
+```yaml
+# In Seafile docker-compose.app.yaml
+environment:
+  COLLABORA_INTERNAL_URL: http://${APP_NAME}-collabora:9980
+```
+
+This is automatically configured in `seahub_settings_extra.py`:
 
 ```python
-ENABLE_OFFICE_WEB_APP = True
-OFFICE_WEB_APP_BASE_URL = 'https://office.example.com/hosting/capabilities'
-OFFICE_WEB_APP_NAME = 'Collabora Online'
-OFFICE_WEB_APP_FILE_EXTENSION = ('ods', 'xls', 'xlsb', 'xlsm', 'xlsx', 'ppsx', 'ppt', 'pptm', 'pptx', 'doc', 'docm', 'docx')
-OFFICE_WEB_APP_EDIT_FILE_EXTENSION = ('ods', 'xls', 'xlsb', 'xlsm', 'xlsx', 'ppsx', 'ppt', 'pptm', 'pptx', 'doc', 'docm', 'docx')
+OFFICE_WEB_APP_BASE_URL = f'{_collabora_internal_url}/hosting/discovery'
 ```
 
 ## Security
@@ -39,30 +89,31 @@ OFFICE_WEB_APP_EDIT_FILE_EXTENSION = ('ods', 'xls', 'xlsb', 'xlsm', 'xlsx', 'pps
 |---------|-------|-------|
 | `cap_drop` | `ALL` | Drop all capabilities |
 | `cap_add` | `SETUID, SETGID, CHOWN, FOWNER, MKNOD, SYS_CHROOT` | Minimum set for coolwsd sandbox |
-| `no-new-privileges` | `true` | Prevent privilege escalation |
+| `no-new-privileges` | **not set** | coolforkit-caps requires file capabilities |
 | `AppArmor` | `docker-default` | Mandatory confinement |
 | `read_only` | **not set** | Collabora writes to `/opt/cool/`, `/etc/coolwsd/`, `/var/cache/` |
 | `user` | **not set** | Collabora manages user switching internally (root -> cool) |
 
-**Security Level:** Level 2 (cap_drop ALL + minimal cap_add + no-new-privileges + AppArmor)
+**Security Level:** Level 1+ (cap_drop ALL + minimal cap_add + AppArmor, but no-new-privileges disabled due to capability requirements)
 
 ## Health Check
 
 The template uses the WOPI discovery endpoint:
-```
-GET http://localhost:9980/hosting/discovery
-```
 
-## Network Architecture
-
-- **frontend** — Traefik routes external traffic to Collabora (port 9980)
-- **backend** — Available for internal communication with application services
+```yaml
+test: ["CMD-SHELL", "curl -sf http://localhost:9980/hosting/discovery > /dev/null || exit 1"]
+interval: 30s
+timeout: 10s
+retries: 3
+start_period: 30s
+```
 
 ## Usage
 
-### As a dependency (x-required-services)
+### As a dependency (recommended)
 
 Add to your app's `docker-compose.app.yaml`:
+
 ```yaml
 x-required-services:
   - collabora
@@ -81,6 +132,7 @@ cd /mnt/data/Github/Docker
 |---------|----------|
 | `No acceptable WOPI host found` | Check `COLLABORA_ALIASGROUP1` matches your app's public URL (escape dots with `\\.`) |
 | Health check fails | Verify coolwsd started: `docker logs <container>` — check for capability errors |
-| WebSocket errors | Enable `websocket-security-headers@file` middleware in Traefik labels |
+| WebSocket errors | Traefik v2+ handles WebSocket upgrades automatically; check network connectivity |
 | SSL errors in browser | Ensure `COLLABORA_EXTRA_PARAMS` includes `--o:ssl.enable=false --o:ssl.termination=true` |
-| Blank editor iframe | Verify DNS for `COLLABORA_SERVER_NAME` resolves correctly and Traefik routes traffic |
+| Blank editor iframe | Verify `SEAFILE_SERVER_HOSTNAME` matches the actual public domain |
+| Discovery timeout | Check that Collabora container is on `backend` network and reachable from host app |

@@ -210,13 +210,15 @@ FILE_LOCK_EXPIRATION_DAYS = 7
 ENABLE_OFFICE_WEB_APP = os.environ.get('ENABLE_OFFICE_WEB_APP', 'false').lower() == 'true'
 
 if ENABLE_OFFICE_WEB_APP:
-    _collabora_hostname = os.environ.get('COLLABORA_SERVER_NAME', 'office.example.com')
+    # Internal URL for server-to-server communication (Docker network)
+    _collabora_internal_url = os.environ.get('COLLABORA_INTERNAL_URL', 'http://collabora:9980')
 
     # Required: Specify Collabora as the office server type
     OFFICE_SERVER_TYPE = 'CollaboraOffice'
 
     # WOPI discovery endpoint (Seafile fetches available actions from here)
-    OFFICE_WEB_APP_BASE_URL = f'https://{_collabora_hostname}/hosting/discovery'
+    # Uses internal Docker network URL - faster and more reliable than public URL
+    OFFICE_WEB_APP_BASE_URL = f'{_collabora_internal_url}/hosting/discovery'
 
     # Display name in the UI
     OFFICE_WEB_APP_NAME = 'Collabora Online'
