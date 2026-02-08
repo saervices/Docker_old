@@ -50,8 +50,7 @@ services:
     ######################################################################
     labels:                                                                                                                                                           # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
       - "traefik.enable=true"                                                                                                                                         # Enable Traefik routing for this container
-      - "traefik.http.routers.${APP_NAME}_collabora-rtr.rule=Host(`${SEAFILE_SERVER_HOSTNAME}`) && (PathPrefix(`/hosting/discovery`) || PathPrefix(`/browser`) || PathPrefix(`/cool`) || PathPrefix(`/lool`) || PathPrefix(`/loleaflet`))"  # Path-based routing on Seafile domain (WOPI endpoints)
-      - "traefik.http.routers.${APP_NAME}_collabora-rtr.priority=100"                                                                                                 # Higher priority than main Seafile router to ensure Collabora paths match first
+      - "traefik.http.routers.${APP_NAME}_collabora-rtr.rule=${TRAEFIK_HOST} && (PathPrefix(`/hosting/discovery`) || PathPrefix(`/browser`) || PathPrefix(`/cool`) || PathPrefix(`/lool`) || PathPrefix(`/loleaflet`))"  # Path-based routing on host app domain (WOPI endpoints)
       - "traefik.http.services.${APP_NAME}_collabora-svc.loadBalancer.server.port=9980"                                                                               # Internal container port (coolwsd listens on 9980)
       # - "traefik.http.routers.${APP_NAME}_collabora-rtr.middlewares=websocket-security-headers@file"                                                                # Optional: explicit WebSocket headers (Traefik v2+ handles upgrades automatically)
     # ports:                                                                                                                                                          # Optional: exposed ports
@@ -64,8 +63,8 @@ services:
     # --- RUNTIME / ENVIRONMENT
     ######################################################################
     environment:                                                                                                                                                      # Environment variables for Collabora configuration
-      aliasgroup1: ${COLLABORA_ALIASGROUP1:?WOPI host URL pattern required}                                                                                           # Allowed WOPI client origins (regex-escaped URL, e.g., https://seafile\\.example\\.com)
-      server_name: ${SEAFILE_SERVER_HOSTNAME:?Server hostname required}                                                                                               # Public hostname (same as Seafile; path-based routing)
+      aliasgroup1: https://${COLLABORA_SERVER_NAME:?Server hostname required}                                                                                         # Allowed WOPI client origins (auto-derived from hostname)
+      server_name: ${COLLABORA_SERVER_NAME}                                                                                                                           # Public hostname for Collabora (set by host app)
       dictionaries: ${COLLABORA_DICTIONARIES:-en_US}                                                                                                                  # Space-separated list of spell-check dictionaries (e.g., en_US de_DE fr_FR)
       extra_params: ${COLLABORA_EXTRA_PARAMS:---o:ssl.enable=false --o:ssl.termination=true}                                                                          # SSL disabled internally; Traefik handles TLS termination
       DONT_GEN_SSL_CERT: 1                                                                                                                                            # Skip internal SSL certificate generation (Traefik provides TLS)

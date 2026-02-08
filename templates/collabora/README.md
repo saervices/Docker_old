@@ -30,14 +30,16 @@ Browser ──HTTPS──▶ seafile.example.com/browser/... ──Traefik──
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `COLLABORA_IMAGE` | Yes | `collabora/code` | Docker image reference |
-| `SEAFILE_SERVER_HOSTNAME` | Yes | — | Public hostname of host application (e.g., `seafile.example.com`) |
-| `COLLABORA_ALIASGROUP1` | Yes | — | Allowed WOPI host URL (regex-escaped, e.g., `https://seafile\\.example\\.com`) |
+| `TRAEFIK_HOST` | Yes | — | Traefik host rule (inherited from host app) |
+| `COLLABORA_SERVER_NAME` | Yes | — | Public hostname (set by host app, e.g., `seafile.example.com`) |
 | `COLLABORA_DICTIONARIES` | No | `en_US` | Space-separated spell-check dictionaries |
 | `COLLABORA_EXTRA_PARAMS` | No | `--o:ssl.enable=false --o:ssl.termination=true` | Additional coolwsd parameters |
 
+> **Note:** `aliasgroup1` (WOPI allowed hosts) is automatically derived as `https://${COLLABORA_SERVER_NAME}`.
+
 ### Traefik Routing
 
-The template configures path-based routing on `SEAFILE_SERVER_HOSTNAME`:
+The template configures path-based routing using `TRAEFIK_HOST` (inherited from host app):
 
 | Path Prefix | Description |
 |-------------|-------------|
@@ -64,20 +66,19 @@ In your Seafile `.env`:
 
 ```bash
 ENABLE_OFFICE_WEB_APP=true
-SEAFILE_SERVER_HOSTNAME=seafile.example.com
+COLLABORA_SERVER_NAME=seafile.example.com   # Same as SEAFILE_SERVER_HOSTNAME
 ```
 
-### 3. Internal Discovery (Recommended)
+### 3. Internal Discovery
 
-The Seafile stack uses internal Docker networking for WOPI discovery (server-to-server), while browsers connect via the public URL:
+Seafile uses internal Docker networking for WOPI discovery (server-to-server), configured in `docker-compose.app.yaml`:
 
 ```yaml
-# In Seafile docker-compose.app.yaml
 environment:
   COLLABORA_INTERNAL_URL: http://${APP_NAME}-collabora:9980
 ```
 
-This is automatically configured in `seahub_settings_extra.py`:
+This is used in `seahub_settings_extra.py`:
 
 ```python
 OFFICE_WEB_APP_BASE_URL = f'{_collabora_internal_url}/hosting/discovery'
