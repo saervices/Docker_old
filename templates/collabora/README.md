@@ -89,7 +89,7 @@ OFFICE_WEB_APP_BASE_URL = f'{_collabora_internal_url}/hosting/discovery'
 | Setting | Value | Notes |
 |---------|-------|-------|
 | `cap_drop` | `ALL` | Drop all capabilities |
-| `cap_add` | `SETUID, SETGID, CHOWN, FOWNER, MKNOD, SYS_CHROOT` | Minimum set for coolwsd sandbox |
+| `cap_add` | `SETUID, SETGID, CHOWN, FOWNER, MKNOD, SYS_CHROOT, SYS_ADMIN` | Minimum set for coolwsd sandbox |
 | `no-new-privileges` | **not set** | coolforkit-caps requires file capabilities |
 | `AppArmor` | `docker-default` | Mandatory confinement |
 | `read_only` | **not set** | Collabora writes to `/opt/cool/`, `/etc/coolwsd/`, `/var/cache/` |
