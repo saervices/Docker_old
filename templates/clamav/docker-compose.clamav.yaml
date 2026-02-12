@@ -20,6 +20,7 @@ services:
       - SETGID                                                                                                                                                  # Required: group management for clamav user
       - CHOWN                                                                                                                                                   # Required: file ownership on virus database volume
       - DAC_OVERRIDE                                                                                                                                            # Required: read files owned by different users during scans
+      - FOWNER                                                                                                                                                  # Required: bypass permission checks during virus DB updates (freshclam)
     security_opt:
       - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
       - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
@@ -53,15 +54,16 @@ services:
     ######################################################################
     environment:                                                                                                                                                # Environment variables for container configuration
       CLAMAV_NO_MILTERD: "true"                                                                                                                                 # Disable milter daemon (not needed for file scanning)
-      CLAMD_STARTUP_TIMEOUT: ${CLAMD_STARTUP_TIMEOUT:-1800}                                                                                                     # Seconds to wait for clamd to load virus databases (default: 30 minutes)
-      FRESHCLAM_CHECKS: ${FRESHCLAM_CHECKS:-1}                                                                                                                  # Number of database update checks per day
+      CLAMD_STARTUP_TIMEOUT: ${CLAMAV_STARTUP_TIMEOUT:-1800}                                                                                                    # Seconds to wait for clamd to load virus databases (default: 30 minutes)
+      FRESHCLAM_CHECKS: ${CLAMAV_FRESHCLAM_CHECKS:-1}                                                                                                           # Number of database update checks per day
+      TINI_SUBREAPER: "1"                                                                                                                                       # Enable tini sub-reaper mode for proper zombie process cleanup in multi-process containers
     logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
       driver: "json-file"
       options:
         max-size: "10m"                                                                                                                                         # Max log file size before rotation
         max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
     healthcheck:                                                                                                                                                # Periodic container health check to ensure service availability
-      test: ['CMD-SHELL', 'clamdcheck.sh']                                                                                                                     # Built-in ClamAV health check script
+      test: ['CMD-SHELL', 'clamdcheck.sh']                                                                                                                      # Built-in ClamAV health check script
       interval: 60s                                                                                                                                             # Time between checks
       timeout: 10s                                                                                                                                              # Time to wait for response
       retries: 3                                                                                                                                                # Number of retries before marking unhealthy

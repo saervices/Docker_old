@@ -13,8 +13,16 @@ ClamAV antivirus daemon (`clamd`) for on-demand file scanning via TCP. Designed 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CLAMAV_IMAGE` | `clamav/clamav:latest` | Container image |
-| `CLAMD_STARTUP_TIMEOUT` | `1800` | Max seconds to wait for clamd database loading |
-| `FRESHCLAM_CHECKS` | `1` | Number of virus database update checks per day |
+| `CLAMAV_STARTUP_TIMEOUT` | `1800` | Max seconds to wait for clamd database loading |
+| `CLAMAV_FRESHCLAM_CHECKS` | `1` | Number of virus database update checks per day |
+
+### Scan Settings (set in app .env, used by `inject_extra_settings.sh`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAMAV_SCAN_INTERVAL` | `5` | Minutes between background virus scan runs |
+| `CLAMAV_SCAN_SIZE_LIMIT` | `20` | Max file size to scan in MB (`0` = unlimited) |
+| `CLAMAV_SCAN_THREADS` | `2` | Number of concurrent scanning threads |
 
 ## Volumes
 
@@ -44,9 +52,15 @@ TCPAddr clamav
 
 Mount this file at `/etc/clamav/clamd.conf` in the client container.
 
+## Security
+
+- `cap_drop: ALL` with minimal `cap_add`: `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`, `FOWNER`
+- `FOWNER` is required for `freshclam` to bypass permission checks during virus database updates
+- `TINI_SUBREAPER: "1"` enables tini sub-reaper mode for proper zombie process cleanup (ClamAV runs multiple daemons: `clamd` + `freshclam`)
+- `read_only` filesystem is not enabled because `freshclam` creates temporary files during database updates
+
 ## Notes
 
 - First startup takes several minutes while ClamAV loads virus signature databases
 - The `freshclam` daemon runs inside the container and automatically updates virus signatures
 - Memory usage is ~1-2 GB due to the virus signature database loaded into RAM
-- `read_only` filesystem is not enabled because `freshclam` creates temporary files during database updates
