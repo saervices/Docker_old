@@ -1,0 +1,92 @@
+---
+services:
+  clamav:
+    ######################################################################
+    # --- CONTAINER BASICS
+    ######################################################################
+    image: ${CLAMAV_IMAGE:?Image required}
+    container_name: ${APP_NAME:?App name required}-clamav
+    hostname: ${APP_NAME}-clamav
+    restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
+
+    ######################################################################
+    # --- SECURITY SETTINGS
+    ######################################################################
+    # read_only: true                                                                                                                                           # Not enabled: freshclam creates temp files in various locations during database updates
+    cap_drop:                                                                                                                                                   # Drop all capabilities by default
+      - ALL
+    cap_add:                                                                                                                                                    # Add only the minimum required capabilities
+      - SETUID                                                                                                                                                  # Required: image switches to clamav user internally
+      - SETGID                                                                                                                                                  # Required: group management for clamav user
+      - CHOWN                                                                                                                                                   # Required: file ownership on virus database volume
+      - DAC_OVERRIDE                                                                                                                                            # Required: read files owned by different users during scans
+    security_opt:
+      - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
+      - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
+
+    ######################################################################
+    # --- SYSTEM RUNTIME
+    ######################################################################
+    init: true                                                                                                                                                  # PID 1 is tini – handles zombies properly
+    stop_grace_period: 30s                                                                                                                                      # Give app time to shut down gracefully
+    oom_score_adj: -500                                                                                                                                         # Reduce likelihood of getting killed under memory pressure
+    tmpfs:                                                                                                                                                      # Ephemeral storage in RAM, auto-cleared on restart
+      - /run                                                                                                                                                    # Runtime files (PID files, sockets, etc.)
+      - /tmp                                                                                                                                                    # Short-lived temp files; faster and auto-cleared on restart
+
+    ######################################################################
+    # --- FILESYSTEM & SECRETS
+    ######################################################################
+    volumes:                                                                                                                                                    # Mount external storage or host directories into the container for persistent data or config
+      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Set container time to host time
+      - /etc/timezone:/etc/timezone:ro                                                                                                                          # Pass timezone info
+      - clamav_database:/var/lib/clamav:rw                                                                                                                      # Virus signature database (persisted across restarts)
+
+    ######################################################################
+    # --- NETWORKING / REVERSE PROXY
+    ######################################################################
+    networks:                                                                                                                                                   # Define which Docker networks the container connects to (controls communication and isolation)
+      - backend                                                                                                                                                 # Internal only: clamd listens on TCP 3310 for scan requests
+
+    ######################################################################
+    # --- RUNTIME / ENVIRONMENT
+    ######################################################################
+    environment:                                                                                                                                                # Environment variables for container configuration
+      CLAMAV_NO_MILTERD: "true"                                                                                                                                 # Disable milter daemon (not needed for file scanning)
+      CLAMD_STARTUP_TIMEOUT: ${CLAMD_STARTUP_TIMEOUT:-1800}                                                                                                     # Seconds to wait for clamd to load virus databases (default: 30 minutes)
+      FRESHCLAM_CHECKS: ${FRESHCLAM_CHECKS:-1}                                                                                                                  # Number of database update checks per day
+    logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
+      driver: "json-file"
+      options:
+        max-size: "10m"                                                                                                                                         # Max log file size before rotation
+        max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
+    healthcheck:                                                                                                                                                # Periodic container health check to ensure service availability
+      test: ['CMD-SHELL', 'clamdcheck.sh']                                                                                                                     # Built-in ClamAV health check script
+      interval: 60s                                                                                                                                             # Time between checks
+      timeout: 10s                                                                                                                                              # Time to wait for response
+      retries: 3                                                                                                                                                # Number of retries before marking unhealthy
+      start_period: 180s                                                                                                                                        # ClamAV needs several minutes to load virus signature databases on first start
+    stdin_open: false                                                                                                                                           # Optional: keep STDIN open
+    tty: false                                                                                                                                                  # Disable terminal allocation; used for non-interactive containers
+
+    ######################################################################
+    # --- DEPENDENCIES
+    ######################################################################
+    # depends_on:                                                                                                                                               # No dependencies – ClamAV runs standalone
+    #   other-service:
+    #     condition: service_healthy
+
+    ######################################################################
+    # --- SYSTEM LIMITS
+    ######################################################################
+    # mem_limit: ${CLAMAV_MEM_LIMIT:-2g}                                                                                                                        # ClamAV needs ~1-2 GB RAM for virus signature database
+    # cpus: ${CLAMAV_CPU_LIMIT:-1.0}                                                                                                                            # Fractional CPU quota
+    # pids_limit: ${CLAMAV_PIDS_LIMIT:-128}                                                                                                                     # Cap number of processes/threads
+
+volumes:
+  clamav_database:
+    driver: local
+
+networks:
+  backend:
+    external: true

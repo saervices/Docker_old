@@ -14,6 +14,7 @@ x-required-services:
   - seafile_notification-server
   - seafile_seadoc-server
   - collabora
+  - clamav
 ```
 
 | Service | Description |
@@ -25,6 +26,7 @@ x-required-services:
 | `seafile_notification-server` | Real-time push notifications (template) |
 | `seafile_seadoc-server` | Collaborative document editor (template) |
 | `collabora` | Office document editing via WOPI (template) |
+| `clamav` | ClamAV antivirus daemon for file scanning (template) |
 
 ---
 
@@ -68,6 +70,21 @@ x-required-services:
 | `ENABLE_SEADOC` | `true` | Collaborative document editor. |
 | `ENABLE_SEAFDAV` | `true` | WebDAV access via `/seafdav`. |
 | `ENABLE_OFFICE_WEB_APP` | `false` | Collabora Online office editing (requires `collabora` template). |
+
+### Virus Scan (ClamAV)
+
+> **Requires Seafile Professional Edition** (`seafileltd/seafile-pro-mc`). Not available in the Community Edition. Pro is free for up to 3 users.
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `ENABLE_VIRUS_SCAN` | `true` | Enable ClamAV virus scanning for uploaded files. |
+| `VIRUS_SCAN_INTERVAL` | `5` | Minutes between background virus scan runs. |
+| `VIRUS_SCAN_SIZE_LIMIT` | `20` | Max file size to scan in MB (`0` = unlimited). |
+| `VIRUS_SCAN_THREADS` | `2` | Number of concurrent scanning threads. |
+
+When enabled, `inject_extra_settings.sh` automatically injects the `[virus_scan]` section into `seafile.conf` on container startup. The Seafile container connects to the ClamAV daemon via TCP (`clamav:3310`) using the configuration in `scripts/clamd-client.conf`.
+
+> **Note:** ClamAV needs ~2-3 minutes to load its virus signature database on first start. Virus scans will fail until ClamAV reports healthy.
 
 ### OAuth / Authentik
 
@@ -113,13 +130,16 @@ Custom Seahub settings (OAuth, security hardening, session policy, etc.) are man
 - ./scripts/inject_extra_settings.sh:/usr/local/bin/inject_extra_settings.sh:ro
 ```
 
-On startup, `inject_extra_settings.sh` appends the following to `seahub_settings.py` if not already present:
+On startup, `inject_extra_settings.sh` performs two injections:
 
-```python
-from seahub_settings_extra import *
-```
+1. Appends the following to `seahub_settings.py` if not already present:
+   ```python
+   from seahub_settings_extra import *
+   ```
 
-This approach keeps custom settings separate from the auto-generated `seahub_settings.py` and survives container rebuilds.
+2. If `ENABLE_VIRUS_SCAN=true`, appends the `[virus_scan]` section to `seafile.conf` if not already present.
+
+This approach keeps custom settings separate from the auto-generated config files and survives container rebuilds.
 
 ### Settings Managed in `seahub_settings_extra.py`
 
@@ -147,6 +167,7 @@ This approach keeps custom settings separate from the auto-generated `seahub_set
 | `./appdata` | `/shared` | `rw` | All Seafile data (libraries, config, logs). |
 | `./scripts/seahub_settings_extra.py` | `/shared/seafile/conf/seahub_settings_extra.py` | `ro` | Custom Seahub settings. |
 | `./scripts/inject_extra_settings.sh` | `/usr/local/bin/inject_extra_settings.sh` | `ro` | Settings injector script. |
+| `./scripts/clamd-client.conf` | `/etc/clamav/clamd.conf` | `ro` | ClamAV client config (TCP connection to ClamAV container). |
 
 Subdirectories created automatically under `./appdata`:
 - `seafile-data/` — Library file blocks and metadata (the bulk of storage)
