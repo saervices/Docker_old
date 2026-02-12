@@ -131,7 +131,7 @@ cd /mnt/data/Github/Docker
 
 | Problem | Solution |
 |---------|----------|
-| `No acceptable WOPI host found` | Check `COLLABORA_ALIASGROUP1` matches your app's public URL (escape dots with `\\.`) |
+| `No acceptable WOPI host found` | Check that `COLLABORA_SERVER_NAME` matches your app's public URL (`aliasgroup1` is derived automatically) |
 | Health check fails | Verify coolwsd started: `docker logs <container>` — check for capability errors |
 | WebSocket errors | Traefik v2+ handles WebSocket upgrades automatically; check network connectivity |
 | SSL errors in browser | Ensure `COLLABORA_EXTRA_PARAMS` includes `--o:ssl.enable=false --o:ssl.termination=true` |
