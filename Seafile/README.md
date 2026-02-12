@@ -15,6 +15,7 @@ x-required-services:
   - seafile_seadoc-server
   - collabora
   - clamav
+  - seafile_seasearch
 ```
 
 | Service | Description |
@@ -27,6 +28,7 @@ x-required-services:
 | `seafile_seadoc-server` | Collaborative document editor (template) |
 | `collabora` | Office document editing via WOPI (template) |
 | `clamav` | ClamAV antivirus daemon for file scanning (template) |
+| `seafile_seasearch` | SeaSearch full-text search engine (template) |
 
 ---
 
@@ -75,16 +77,30 @@ x-required-services:
 
 > **Requires Seafile Professional Edition** (`seafileltd/seafile-pro-mc`). Not available in the Community Edition. Pro is free for up to 3 users.
 
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `ENABLE_VIRUS_SCAN` | `true` | Enable ClamAV virus scanning for uploaded files. |
-| `VIRUS_SCAN_INTERVAL` | `5` | Minutes between background virus scan runs. |
-| `VIRUS_SCAN_SIZE_LIMIT` | `20` | Max file size to scan in MB (`0` = unlimited). |
-| `VIRUS_SCAN_THREADS` | `2` | Number of concurrent scanning threads. |
+| Variable | Default | Location | Notes |
+|----------|---------|----------|-------|
+| `ENABLE_VIRUS_SCAN` | `true` | App `.env` | Enable ClamAV virus scanning for uploaded files. |
+| `CLAMAV_SCAN_INTERVAL` | `5` | Template `.env` | Minutes between background virus scan runs. |
+| `CLAMAV_SCAN_SIZE_LIMIT` | `20` | Template `.env` | Max file size to scan in MB (`0` = unlimited). |
+| `CLAMAV_SCAN_THREADS` | `2` | Template `.env` | Number of concurrent scanning threads. |
 
 When enabled, `inject_extra_settings.sh` automatically injects the `[virus_scan]` section into `seafile.conf` on container startup. The Seafile container connects to the ClamAV daemon via TCP (`clamav:3310`) using the configuration in `scripts/clamd-client.conf`.
 
 > **Note:** ClamAV needs ~2-3 minutes to load its virus signature database on first start. Virus scans will fail until ClamAV reports healthy.
+
+### Full-Text Search (SeaSearch)
+
+> **Requires Seafile Professional Edition** (`seafileltd/seafile-pro-mc`). Not available in the Community Edition. Pro is free for up to 3 users.
+
+| Variable | Default | Location | Notes |
+|----------|---------|----------|-------|
+| `ENABLE_SEASEARCH` | `true` | App `.env` | Enable SeaSearch full-text file search. |
+| `SEAFILE_SEASEARCH_INTERVAL` | `10m` | Template `.env` | Indexing interval (e.g., `5m`, `10m`, `30m`). |
+| `SEAFILE_SEASEARCH_INDEX_OFFICE_PDF` | `true` | Template `.env` | Index contents of Office and PDF files. |
+
+The `SEAFILE_SEASEARCH_ADMIN_PASSWORD` is stored as a Docker Secret (see [Secrets](#secrets)). On startup, `inject_extra_settings.sh` automatically generates the base64 auth token (from the hardcoded username `seasearch` and the secret) and injects the `[SEASEARCH]` section into `seafevents.conf`. SeaSearch is accessed internally via `http://seafile_seasearch:4080`.
+
+> **Note:** Generate the SeaSearch password before the first start with `../run.sh Seafile --generate_password SEAFILE_SEASEARCH_ADMIN_PASSWORD 48`. The credentials are used once to create the internal auth user. The admin username is hardcoded as `seasearch` (backend-only, never exposed).
 
 ### OAuth / Authentik
 
@@ -112,6 +128,7 @@ OAuth settings (client ID/secret, attribute mapping, SSO redirect) are configure
 | `REDIS_PASSWORD` | Redis authentication password. |
 | `OAUTH_CLIENT_ID` | Authentik OAuth client ID. |
 | `OAUTH_CLIENT_SECRET` | Authentik OAuth client secret. |
+| `SEAFILE_SEASEARCH_ADMIN_PASSWORD` | SeaSearch admin password (backend-only; used for auth token generation). |
 
 All secrets are injected via the entrypoint using `cat /run/secrets/<NAME>`. Generate passwords with:
 
@@ -138,6 +155,8 @@ On startup, `inject_extra_settings.sh` performs two injections:
    ```
 
 2. If `ENABLE_VIRUS_SCAN=true`, appends the `[virus_scan]` section to `seafile.conf` if not already present.
+
+3. If `ENABLE_SEASEARCH=true`, generates the base64 auth token and appends the `[SEASEARCH]` section to `seafevents.conf` if not already present.
 
 This approach keeps custom settings separate from the auto-generated config files and survives container rebuilds.
 
