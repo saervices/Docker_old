@@ -5,6 +5,7 @@
 # Automatically injects settings into Seafile configuration files:
 # 1. seahub_settings.py - "from seahub_settings_extra import *" (OAuth, security)
 # 2. seafile.conf - [virus_scan] section (ClamAV integration)
+# 3. seafevents.conf - [SEASEARCH] section (full-text search)
 #
 # Usage: Run this script before Seafile starts (in entrypoint or as init script)
 # ==============================================================================
@@ -13,6 +14,7 @@ set -euo pipefail
 
 SEAHUB_SETTINGS="/shared/seafile/conf/seahub_settings.py"
 SEAFILE_CONF="/shared/seafile/conf/seafile.conf"
+SEAFEVENTS_CONF="/shared/seafile/conf/seafevents.conf"
 IMPORT_LINE="from seahub_settings_extra import *"
 
 # Wait for config files to exist (in case Seafile creates them on first run)
@@ -52,12 +54,34 @@ if [[ "${ENABLE_VIRUS_SCAN:-false}" == "true" ]] && [[ -f "$SEAFILE_CONF" ]]; th
 scan_command = clamdscan
 virus_code = 1
 nonvirus_code = 0
-scan_interval = ${VIRUS_SCAN_INTERVAL:-5}
-scan_size_limit = ${VIRUS_SCAN_SIZE_LIMIT:-20}
-threads = ${VIRUS_SCAN_THREADS:-2}
+scan_interval = ${CLAMAV_SCAN_INTERVAL:-5}
+scan_size_limit = ${CLAMAV_SCAN_SIZE_LIMIT:-20}
+threads = ${CLAMAV_SCAN_THREADS:-2}
 EOF
         echo "[SUCCESS] Injected virus scan settings into $SEAFILE_CONF"
     fi
 elif [[ "${ENABLE_VIRUS_SCAN:-false}" == "true" ]]; then
     echo "[WARN] ENABLE_VIRUS_SCAN=true but $SEAFILE_CONF not found. Restart the container to apply virus scan settings."
+fi
+
+# --- SeaSearch Settings (Full-Text Search) ---
+
+if [[ "${ENABLE_SEASEARCH:-false}" == "true" ]] && [[ -f "$SEAFEVENTS_CONF" ]]; then
+    if grep -q '\[SEASEARCH\]' "$SEAFEVENTS_CONF"; then
+        echo "[INFO] SeaSearch settings already present in $SEAFEVENTS_CONF"
+    else
+        SEASEARCH_TOKEN=$(echo -n "seasearch:${SEAFILE_SEASEARCH_ADMIN_PASSWORD:-}" | base64)
+        cat >> "$SEAFEVENTS_CONF" << EOF
+
+[SEASEARCH]
+enabled = true
+seasearch_url = http://seafile_seasearch:4080
+seasearch_token = ${SEASEARCH_TOKEN}
+interval = ${SEAFILE_SEASEARCH_INTERVAL:-10m}
+index_office_pdf = ${SEAFILE_SEASEARCH_INDEX_OFFICE_PDF:-true}
+EOF
+        echo "[SUCCESS] Injected SeaSearch settings into $SEAFEVENTS_CONF"
+    fi
+elif [[ "${ENABLE_SEASEARCH:-false}" == "true" ]]; then
+    echo "[WARN] ENABLE_SEASEARCH=true but $SEAFEVENTS_CONF not found. Restart the container to apply SeaSearch settings."
 fi
