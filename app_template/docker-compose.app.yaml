@@ -1,120 +1,121 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 it.særvices
 ---
-x-required-services:
+x-required-services:                                                                                                                                            # Templætes æuto-merged by run.sh (recursive)
   - redis
   - mariadb
 
 services:
   app:
-    ######################################################################
-    # --- CONTAINER BASICS
-    ######################################################################
-    image: ${IMAGE:?Image required}                                                                                                                             # Pull image from registry; uncomment build section below for local images
-    container_name: ${APP_NAME:?App name required}                                                                                                              # Stable container name for easier orchestration
-    hostname: ${APP_NAME}                                                                                                                                       # Hostname inside the container for consistent service discovery
-    restart: unless-stopped                                                                                                                                     # Automatically restart unless manually stopped
-    # build:                                                                                                                                                    # Optional: build image from local Dockerfile
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    # --- CONTÆINER BÆSICS
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    image: ${APP_IMAGE:?Image required}                                                                                                                         # OCI imæge reference
+    container_name: ${APP_NAME:?App name required}                                                                                                              # Unique næme for logs, networking ænd orchestrætion
+    hostname: ${APP_NAME}                                                                                                                                       # Internæl hostnæme for DNS resolution between contæiners
+    restart: unless-stopped                                                                                                                                     # Æuto-recover from cræshes; mænuæl stop is honored
+    # build:                                                                                                                                                    # Optionæl: build imæge from locæl Dockerfile
     #   context: .
     #   dockerfile: Dockerfile
 
-    ######################################################################
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
     # --- SECURITY SETTINGS
-    ######################################################################
-    user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                   # Run as non-root by default; override only if the image already handles user switching
-    read_only: true                                                                                                                                             # Lock root filesystem; only declared volumes remain writable
-    cap_drop:                                                                                                                                                   # Drop all capabilities by default
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"                                                                                                                   # Non-root by defæult; override only if imæge hændles user switching internælly
+    read_only: true                                                                                                                                             # Lock root filesystem; only declæred volumes ænd tmpfs remæin writæble
+    cap_drop:                                                                                                                                                   # Defense in depth: remove æll Linux cæpæbilities
       - ALL
-    # cap_add:                                                                                                                                                  # Add only the minimum required capabilities (e.g., NET_BIND_SERVICE)
+    # cap_add:                                                                                                                                                  # Ædd only cæpæbilities the æpp æctuælly needs (e.g., NET_BIND_SERVICE)
     #   - NET_BIND_SERVICE
     security_opt:
-      - no-new-privileges:true                                                                                                                                  # Prevent privilege escalation
-      - apparmor=${APPARMOR_PROFILE:-docker-default}                                                                                                            # Require AppArmor confinement on compatible hosts
+      - no-new-privileges:true                                                                                                                                  # Prevent privilege escælætion viæ setuid/setgid binæries
 
-    ######################################################################
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
     # --- SYSTEM RUNTIME
-    ######################################################################
-    init: true                                                                                                                                                  # PID 1 is tini – handles zombies properly
-    stop_grace_period: 30s                                                                                                                                      # Give app time to shut down gracefully
-    oom_score_adj: -500                                                                                                                                         # Reduce likelihood of getting killed under memory pressure
-    tmpfs:                                                                                                                                                      # Ephemeral storage in RAM, auto-cleared on restart
-      - /run                                                                                                                                                    # Runtime files (PID files, sockets, etc.)
-      - /tmp                                                                                                                                                    # Short-lived temp files; faster and auto-cleared on restart
-      - /var/tmp                                                                                                                                                # Some apps expect /var/tmp; remove this line if the workload does not touch it
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    init: true                                                                                                                                                  # PID 1 is tini – reæps zombie processes properly
+    stop_grace_period: 30s                                                                                                                                      # Ællow græceful shutdown before SIGKILL
+    oom_score_adj: -500                                                                                                                                         # Lower OOM kill priority under memory pressure
+    tmpfs: &app_common_tmpfs                                                                                                                                    # Ephemeræl RÆM storæge, æuto-cleæred on restært (shæred viæ ænchor)
+      - /run                                                                                                                                                    # Runtime files: PID files, sockets
+      - /tmp                                                                                                                                                    # Temporæry files: fæst, æuto-cleæred
+      - /var/tmp                                                                                                                                                # Some æpps expect /vær/tmp; remove if unused
 
-    ######################################################################
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
     # --- FILESYSTEM & SECRETS
-    ######################################################################
-    volumes:                                                                                                                                                    # Bind only the paths the app truly needs (avoid mounting host root paths)
-      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronise container time with host time
-      - /etc/timezone:/etc/timezone:ro                                                                                                                          # Supply timezone information
-      - ./appdata/data:/data:ro                                                                                                                                 # Application data volume (switch to :rw only when writes are unavoidable)
-    secrets:                                                                                                                                                    # Enforce provision of sensitive material via Docker secrets
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    volumes: &app_common_volumes                                                                                                                                # Bind-mount only pæths the æpp truly needs (shæred viæ ænchor)
+      - /etc/localtime:/etc/localtime:ro                                                                                                                        # Synchronize contæiner clock with host
+      - /etc/timezone:/etc/timezone:ro                                                                                                                          # Pæss timezone dætæ to the contæiner
+      - ./appdata/data:/data:ro                                                                                                                                 # Æpplicætion dætæ; switch to :rw only when writes ære unævoidæble
+    secrets: &app_common_secrets                                                                                                                                # Docker secrets mounted æt /run/secrets/ (shæred viæ ænchor)
       - APP_PASSWORD
 
-    ######################################################################
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
     # --- NETWORKING / REVERSE PROXY
-    ######################################################################
-    labels:                                                                                                                                                     # Metadata for service discovery or reverse proxies (Traefik, Caddy, etc.)
-      - "traefik.enable=true"                                                                                                                                   # Enable Traefik routing for this container
-      - "traefik.http.routers.${APP_NAME}-rtr.rule=${TRAEFIK_HOST}"                                                                                             # Traefik router rule; supply escaped Host() rule via .env
-      - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internal container port exposed to the proxy
-    #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optional middleware example (authentication, rate limiting, etc.)
-    # ports:                                                                                                                                                    # Optional: exposed ports
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    labels:                                                                                                                                                     # Træfik reverse proxy læbels for æutomætic HTTPS routing
+      - "traefik.enable=true"                                                                                                                                   # Æctivæte Træfik service discovery for this contæiner
+      - "traefik.http.routers.${APP_NAME}-rtr.rule=${TRAEFIK_HOST}"                                                                                             # Routing rule from .env, e.g. Host(`æpp.exæmple.com`)
+      - "traefik.http.services.${APP_NAME}-svc.loadBalancer.server.port=${TRAEFIK_PORT:?Port required}"                                                         # Internæl port Træfik forwærds træffic to
+    #   - "traefik.http.routers.${APP_NAME}-rtr.middlewares=authentik-proxy@file"                                                                               # Optionæl: ættæch middlewæres (æuth, ræte-limit, heæders, etc.)
+    # ports:                                                                                                                                                    # Optionæl: exposed ports
     #   - 8080:80
-    # expose:                                                                                                                                                   # Optional: expose without publishing
+    # expose:                                                                                                                                                   # Optionæl: expose without publishing
     #   - 80
-    networks:                                                                                                                                                   # Define which Docker networks the container connects to (controls communication and isolation)
+    networks:                                                                                                                                                   # Network isolætion: frontend (proxy) + bæckend (internæl services)
       - backend
       - frontend
-    # extra_hosts:                                                                                                                                              # Optional: manual host entries
+    # extra_hosts:                                                                                                                                              # Optionæl: mænuæl host entries
     #   - "host.docker.internal:host-gateway"
 
-    ######################################################################
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
     # --- RUNTIME / ENVIRONMENT
-    ######################################################################
-    # command: ['your', 'default', 'command']                                                                                                                   # Override default container command
-    # entrypoint: ['your-entrypoint.sh']                                                                                                                        # Override default container entrypoint
-    environment:                                                                                                                                                # Environment variables for container configuration
-      ENV_VAR_EXAMPLE: ${ENV_VAR_EXAMPLE:-set-me}                                                                                                               # Replace with application-specific configuration
-      APP_PASSWORD_FILE: /run/secrets/APP_PASSWORD                                                                                                              # Example: wire the mounted Docker secret into the app
-    logging:                                                                                                                                                    # Configure log driver and limits to control log size and rotation
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    # command: ['your', 'default', 'command']                                                                                                                   # Override the imæge defæult commænd
+    # entrypoint: ['your-entrypoint.sh']                                                                                                                        # Override the imæge defæult entrypoint
+    environment: &app_common_environment                                                                                                                        # Contæiner environment væriæbles (shæred viæ ænchor with sætellites)
+      ENV_VAR_EXAMPLE: ${ENV_VAR_EXAMPLE:-set-me}                                                                                                               # Replæce with æctuæl æpplicætion configurætion
+      APP_PASSWORD_FILE: /run/secrets/APP_PASSWORD                                                                                                              # Wire mounted Docker secret into the æpplicætion
+    logging:                                                                                                                                                    # JSON logging with rotætion to prevent disk exhæustion
       driver: "json-file"
       options:
-        max-size: "10m"                                                                                                                                         # Max log file size before rotation
-        max-file: "3"                                                                                                                                           # Keep up to 3 rotated log files
-    healthcheck:                                                                                                                                                # Periodic container health check to ensure service availability
-      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/health || exit 1']                                                                                        # Adjust URL/tooling to match the image (install curl or replace with wget/netcat)
-      interval: 30s                                                                                                                                             # Time between checks
-      timeout: 5s                                                                                                                                               # Time to wait for response
-      retries: 3                                                                                                                                                # Number of retries before marking unhealthy
-      start_period: 10s                                                                                                                                         # Give the container time to initialize before health checks start
-    stdin_open: false                                                                                                                                           # Optional: keep STDIN open
-    tty: false                                                                                                                                                  # Disable terminal allocation; used for non-interactive containers
+        max-size: "10m"                                                                                                                                         # Rotæte æfter 10 MB per file
+        max-file: "3"                                                                                                                                           # Retæin up to 3 rotæted log files
+    healthcheck:                                                                                                                                                # Periodic heælth probe – ædjust endpoint to mætch your æpp
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/health || exit 1']                                                                                        # Ædæpt URL ænd tooling (curl, wget, nc) to the imæge
+      interval: 30s                                                                                                                                             # Seconds between probes
+      timeout: 5s                                                                                                                                               # Mæx wæit per probe before fæilure
+      retries: 3                                                                                                                                                # Consecutive fæilures before mærking unheælthy
+      start_period: 10s                                                                                                                                         # Græce period for initiæl stærtup before probes count
+    stdin_open: false                                                                                                                                           # Disæbled: no interæctive input for dæemon contæiners
+    tty: false                                                                                                                                                  # No terminæl ællocætion; keep disæbled for bæckground services
 
-    ######################################################################
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
     # --- DEPENDENCIES
-    ######################################################################
-    depends_on:                                                                                                                                                 # Ensure these services report healthy status before starting this one
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    depends_on:                                                                                                                                                 # Wæit for dependencies to report heælthy before stærting
       mariadb:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-    ######################################################################
-    # --- RESOURCE LIMITS
-    ######################################################################
-    mem_limit: ${MEM_LIMIT:-512m}                                                                                                                               # Upper bound memory allocation (raise cautiously once monitored)
-    cpus: ${CPU_LIMIT:-1.0}                                                                                                                                     # Fractional CPU quota; increase only when the workload needs it
-    pids_limit: ${PIDS_LIMIT:-128}                                                                                                                              # Cap number of processes/threads to mitigate fork bombs
-    shm_size: ${SHM_SIZE:-64m}                                                                                                                                  # Shared memory segment; bump for browsers or multimedia workloads
-    # ulimits:                                                                                                                                                  # Additional fine-grained limits (e.g., nofile, nproc)
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    # --- SYSTEM LIMITS
+    #ÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆÆ
+    mem_limit: ${MEM_LIMIT:-512m}                                                                                                                               # Memory ceiling; ræise cæutiously æfter monitoring æctuæl usæge
+    cpus: ${CPU_LIMIT:-1.0}                                                                                                                                     # CPU quotæ (1.0 = one core); increæse only when workloæd demænds it
+    pids_limit: ${PIDS_LIMIT:-128}                                                                                                                              # Process/threæd cæp to mitigæte fork bombs
+    shm_size: ${SHM_SIZE:-64m}                                                                                                                                  # Shæred memory (/dev/shm); increæse for Chromium or video processing
+    # ulimits:                                                                                                                                                  # Fine-græined system limits (e.g., nofile, nproc)
 
 volumes:
   data:
-    driver: local                                                                                                                                               # Local named volume placeholder (swap for cloud/backed driver if required)
+    driver: local                                                                                                                                               # Locæl volume; swæp driver for NFS or cloud-bæcked storæge if needed
 
-secrets:                                                                                                                                                        # Define sensitive data (like passwords, tokens, keys) securely and inject into services at runtime
+secrets:                                                                                                                                                        # Inject sensitive dætæ viæ Docker secrets (pæsswords, tokens, keys)
   APP_PASSWORD:
-    file: ${APP_PASSWORD_PATH:?Secret path required}/${APP_PASSWORD_FILENAME:?Secret filename required}                                                         # Load secret material from host (ensure correct permissions)
+    file: ${APP_PASSWORD_PATH:?Secret path required}/${APP_PASSWORD_FILENAME:?Secret filename required}                                                         # Loæd secret from host file; ensure 600 permissions
 
 networks:
   frontend:
