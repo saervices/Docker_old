@@ -85,7 +85,7 @@ ENABLE_DELETE_ACCOUNT = False
 ENABLE_UPDATE_USER_INFO = False
 
 # Show watermark on file previews in the browser (default: False)
-ENABLE_WATERMARK = True
+ENABLE_WATERMARK = False
 
 # =============================================================================
 # Desktop Client Settings
