@@ -15,7 +15,7 @@ http:
   # INDIVIDUAL MIDDLEWARES
   ######################################################################
     ###################################
-    # WEBSOCKET SECURITY HEADERS
+    # WEBSOCKET SECURITY HEADERS (DEPRECATED - Traefik handles WebSocket upgrades natively)
     ###################################
     websocket-security-headers:
       headers:
